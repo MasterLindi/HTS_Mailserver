@@ -1,7 +1,7 @@
 #include "serverfunctions.h"
 
 #define BUF 1024
-#define OVERFLOW 1
+#define OVERFLOW 2
 
 ssize_t readline (int fd, void *vptr, size_t maxlen)
 {
@@ -33,9 +33,70 @@ ssize_t readline (int fd, void *vptr, size_t maxlen)
 	 return (n) ;
 }
 
+int loginuser(int socket ,char **username)
+{
+	int size;
+	int i;
+	int j;
+	int len; 
+	char buffer[BUF];
+	char *user;
+	char *pw;
+	
+	for(i = 0; i < 2; i++)
+	{
+		size = readline(socket, buffer, BUF-1);
+		
+		if(size > 0)
+		{
+			buffer[size] = '\0';
+			
+			switch(i)
+			{
+				case 0: //Benutzer
+					user = (char *)malloc(strlen(buffer)+1);
+					strcpy(user, buffer);
+							
+					len = strlen(user);
+					
+					if(len-OVERFLOW > 8) //Länge des Sender größer 8, wenn ja Fehler
+						return -1;		
+					
+					//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
+					for(j = 0; j < len-OVERFLOW; j++) 
+					{				
+						if(!isalnum(user[j]))
+						{
+							free(user);
+							return -1;
+						}
+					}
+					break;
+					
+				case 1: //Passwort
+					pw = (char *)malloc(strlen(buffer)+1);
+					strcpy(pw, buffer);
+					break;
+			}
+		}
+		else
+		{
+			return -1;
+		}
+	}
+	
+	*username = (char *)malloc(strlen(user)+1);
+	strcpy(*username, user);
+	
+	free(user);
+	free(pw);
+	
+	return 0;
+}
+
 
 //Mail senden
-int sendmail(int socket, char *spool)
+int sendmail(int socket, char *spool, char *username)
 {
 	int size; 
 	int i = 0;
@@ -48,11 +109,13 @@ int sendmail(int socket, char *spool)
 	FILE *fp = NULL;
 	char buffer[BUF];
 	char mailpath[150];	
-	char confpath[150];	
-	char *sender = NULL;
+	char confpath[150];		
 	char *receiver = NULL;
 	char *subject = NULL;
 	char *content = NULL;
+	
+	if(username == NULL)
+		return -1;
 		
 	do
 	{
@@ -64,27 +127,7 @@ int sendmail(int socket, char *spool)
 			
 			switch(i)
 			{
-				case 0: //Sender
-					sender = (char *)malloc(strlen(buffer)+1);
-					strcpy(sender, buffer);
-							
-					len = strlen(sender);
-					
-					if(len-OVERFLOW > 8) //Länge des Sender größer 8, wenn ja Fehler
-						return -1;		
-					
-					//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-					for(j = 0; j < len-OVERFLOW; j++) 
-					{				
-						if(!isalnum(sender[j]))
-						{
-							free(sender);
-							return -1;
-						}
-					}
-					break;
-				
-				case 1: //Empfänger
+				case 0: //Empfänger
 					receiver = (char *)malloc(strlen(buffer)+1);
 					strcpy(receiver, buffer);
 					
@@ -97,15 +140,14 @@ int sendmail(int socket, char *spool)
 					for(j = 0; j < len-OVERFLOW; j++)
 					{				
 						if(!isalnum(receiver[j]))
-						{
-							free(sender);
+						{							
 							free(receiver);
 							return -1;
 						}
 					}
 					break;
 				
-				case 2: //Betreff
+				case 1: //Betreff
 					subject = (char *)malloc(strlen(buffer)+1);
 					strcpy(subject, buffer);
 					
@@ -118,14 +160,13 @@ int sendmail(int socket, char *spool)
 					for(j = 0; j < len-OVERFLOW; j++)
 					{				
 						if(!isalnum(subject[j]) && subject[j] != ' ')
-						{
-							free(sender);
+						{							
 							free(receiver);
 							free(subject);
 							return -1;
 						}
 					}
-					break;
+					break;				
 				
 				default: //Inhalt
 					if(strncmp(buffer, ".", 1) == 0) //Ende der Nachricht
@@ -145,7 +186,6 @@ int sendmail(int socket, char *spool)
 							
 							if(content == NULL)
 							{
-								free(sender);
 								free(receiver);
 								free(subject);
 								free(content);
@@ -161,7 +201,6 @@ int sendmail(int socket, char *spool)
 							
 							if(content == NULL)
 							{
-								free(sender);
 								free(receiver);
 								free(subject);
 								free(content);
@@ -213,7 +252,7 @@ int sendmail(int socket, char *spool)
 	if((fp = fopen(mailpath, "w")) == NULL)
 		return -1;
 	
-	fputs(sender, fp);
+	fputs(username, fp);
 	fputs(receiver, fp);
 	fputs(subject, fp);
 	fputs(content, fp);
@@ -229,7 +268,6 @@ int sendmail(int socket, char *spool)
 	fclose(fp);
 	
 	//Speicher freigeben
-	free(sender);
 	free(receiver);
 	free(subject);
 	free(content);
@@ -238,9 +276,8 @@ int sendmail(int socket, char *spool)
 }
 
 //Emails eines Benutzers anzeigen
-int listmail(int socket, char *spool)
+int listmail(int socket, char *spool, char *username)
 {
-	int size; 
 	int i;
 	char buffer[BUF];
 	char subject[81];
@@ -250,19 +287,17 @@ int listmail(int socket, char *spool)
 	DIR *ver;
 	struct dirent *p;
 	
-	size = readline(socket, buffer, BUF-1);
+	if(username == NULL)
+		return -1;
+	
+	
+	//Pfad zum Benutzer erstellen
+	strcpy(mailpath, spool);
+	strcat(mailpath, "/");
+	strncat(mailpath, username, strlen(username)-OVERFLOW);
 		
-	if(size > 0)
-	{
-		buffer[size] = '\0';
-		
-		//Pfad zum Benutzer erstellen
-		strcpy(mailpath, spool);
-		strcat(mailpath, "/");
-		strncat(mailpath, buffer, strlen(buffer)-OVERFLOW);
-		
-		//Benutzer nicht vorhanden
-		if(access(mailpath, 00) == -1)	
+	//Benutzer nicht vorhanden
+	if(access(mailpath, 00) == -1)	
 		{
 			return -1;
 		}
@@ -301,17 +336,12 @@ int listmail(int socket, char *spool)
 		}
 		
 		closedir(ver);
-			
-	}
-	else
-	{
-		return -1;
-	}
 	
 	return 0;
 }
 
-int readmail(int socket, char *spool)
+//Email auslesen
+int readmail(int socket, char *spool, char *username)
 {
 	int size;
 	int i;
@@ -320,68 +350,41 @@ int readmail(int socket, char *spool)
 	FILE *fp;
 	char buffer[BUF];
 	char mailpath[150];
-	char *user = NULL;
 	char *msg = NULL;
 	
-	for(i = 0; i < 2; i++)
-	{
+	if(username == NULL)
+		return -1;
+	
 		size = readline(socket, buffer, BUF-1);
 		
 		if(size > 0)
 		{
 			buffer[size] = '\0';
 			
-			switch(i)
-			{
-				case 0: //Benutzer
-					user = (char *)malloc(strlen(buffer)+1);
-					strcpy(user, buffer);
+			msg = (char *)malloc(strlen(buffer)+1);
+			strcpy(msg, buffer);
 							
-					len = strlen(user);
+			len = strlen(msg);
 					
-					if(len-OVERFLOW > 8) //Länge des Sender größer 8, wenn ja Fehler
-						return -1;		
-					
-					//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-					for(j = 0; j < len-OVERFLOW; j++) 
-					{				
-						if(!isalnum(user[j]))
-						{
-							free(user);
-							return -1;
-						}
-					}
-					break;
-					
-				case 1: //Nachricht
-					msg = (char *)malloc(strlen(buffer)+1);
-					strcpy(msg, buffer);
-							
-					len = strlen(msg);
-					
-					//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-					for(j = 0; j < len-OVERFLOW; j++) 
-					{				
-						if(!isdigit(msg[j]))
-						{
-							free(user);
-							free(msg);
-							return -1;
-						}
-					}
-					break;
+			//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
+			for(j = 0; j < len-OVERFLOW; j++) 
+			{				
+				if(!isdigit(msg[j]))
+				{
+					free(msg);
+					return -1;
+				}
 			}
 		}
 		else
 		{
 			return -1;
 		}
-	}
 	
 	//Pfad erstellen
 	strcpy(mailpath, spool);
 	strcat(mailpath, "/");
-	strncat(mailpath, user, strlen(user)-OVERFLOW);	
+	strncat(mailpath, username, strlen(username)-OVERFLOW);	
 	
 	//Benutzer nicht vorhanden
 	if(access(mailpath, 00) == -1)	
@@ -408,83 +411,54 @@ int readmail(int socket, char *spool)
 	fclose(fp);
 	
 	//Speicher freigeben
-	free(user);
 	free(msg);
 				
 	return 0;
 }
 
-int delmail(int socket, char *spool)
+int delmail(int socket, char *spool, char *username)
 {
-	int size;
-	int i;
+	int size;	
 	int j;
 	int len;
 	FILE *fp;
 	char buffer[BUF];
 	char mailpath[150];
-	char *user = NULL;
 	char *msg = NULL;
 	
-	for(i = 0; i < 2; i++)
-	{
+	if(username == NULL)
+		return -1;	
+	
 		size = readline(socket, buffer, BUF-1);
 		
 		if(size > 0)
 		{
 			buffer[size] = '\0';
 			
-			switch(i)
-			{
-				case 0: //Benutzer
-					user = (char *)malloc(strlen(buffer)+1);
-					strcpy(user, buffer);
+			msg = (char *)malloc(strlen(buffer)+1);
+			strcpy(msg, buffer);
 							
-					len = strlen(user);
+			len = strlen(msg);
 					
-					if(len-OVERFLOW > 8) //Länge des Sender größer 8, wenn ja Fehler
-						return -1;		
-					
-					//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-					for(j = 0; j < len-OVERFLOW; j++) 
-					{				
-						if(!isalnum(user[j]))
-						{
-							free(user);
-							return -1;
-						}
-					}
-					break;
-					
-				case 1: //Nachricht
-					msg = (char *)malloc(strlen(buffer)+1);
-					strcpy(msg, buffer);
-							
-					len = strlen(msg);
-					
-					//Prüfung ob alle Zeichen numerisch sind, wenn nicht, Fehler
-					for(j = 0; j < len-OVERFLOW; j++) 
-					{				
-						if(!isdigit(msg[j]))
-						{
-							free(user);
-							free(msg);
-							return -1;
-						}
-					}
-					break;
+			//Prüfung ob alle Zeichen numerisch sind, wenn nicht, Fehler
+			for(j = 0; j < len-OVERFLOW; j++) 
+			{				
+				if(!isdigit(msg[j]))
+				{					
+					free(msg);
+					return -1;
+				}
 			}
 		}
 		else
 		{
 			return -1;
-		}
-	}
+		}	
 	
 	//Pfad erstellen
 	strcpy(mailpath, spool);
 	strcat(mailpath, "/");
-	strncat(mailpath, user, strlen(user)-OVERFLOW);	
+	strncat(mailpath, username, strlen(username)-OVERFLOW);	
 	
 	//Benutzer nicht vorhanden
 	if(access(mailpath, 00) == -1)	
@@ -500,7 +474,6 @@ int delmail(int socket, char *spool)
 		return -1;
 		
 	//Speicher freigeben
-	free(user);
 	free(msg);
 	return 0;
 }

@@ -10,13 +10,16 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <pthread.h>
+#include <time.h>
 
-#ifndef serverfunctions_h
-#define serverfunctions_h
+#ifndef functions_h
+#define functions_h
 
-int sendmail(int, char *);
-int listmail(int, char *);
-int readmail(int, char *);
-int delmail(int, char *);
+int loginuser(int, char **);
+int sendmail(int, char *, char *);
+int listmail(int, char *, char *);
+int readmail(int, char *, char *);
+int delmail(int, char *, char *);
 
 #endif 

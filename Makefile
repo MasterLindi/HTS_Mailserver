@@ -12,7 +12,7 @@ clientfunctions.o: clientfunctions.c clientfunctions.h
 	gcc -g -O -c clientfunctions.c
 
 server: servermain.o serverfunctions.o
-	gcc -g -O -o server servermain.o serverfunctions.o
+	gcc -g -O -o server servermain.o serverfunctions.o -lpthread
 
 servermain.o: servermain.c serverfunctions.h
 	gcc -g -O -c servermain.c
