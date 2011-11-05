@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <termios.h>
+
 
 
 
@@ -21,5 +23,6 @@ void sendcom(int, char*);
 void listcom(int, char*);
 void readcom(int, char*);
 void delcom(int, char*);
+void logincom(int,char*);
 
 #endif
