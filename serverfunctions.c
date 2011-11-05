@@ -133,25 +133,28 @@ int sendmail(int socket, char *spool, char *username)
 			switch(i)
 			{
 				case 0: //Empfänger
-                    if (strncmp(buffer,"empfaus",strlen("empfaus")== 0)) break;
-                    receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
-                    strcpy(receiver[anzempf], buffer);
-                    len = strlen(receiver[anzempf]);
-
-                    if(len-OVERFLOW > 8) //Länge des Empfängers größer 8, wenn ja Fehler
-                    return -1;
-
-                    //Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-                    for(j = 0; j < len-OVERFLOW; j++)
+                    if ((strncmp(buffer,"empfaus",strlen("empfaus")))== 0) break;
+                    else
                     {
-                        if(!isalnum(receiver[anzempf][j]))
+                        receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
+                        strcpy(receiver[anzempf], buffer);
+                        len = strlen(receiver[anzempf]);
+
+                        if(len-OVERFLOW > 8) //Länge des Empfängers größer 8, wenn ja Fehler
+                        return -1;
+
+                        //Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
+                        for(j = 0; j < len-OVERFLOW; j++)
                         {
-                            free(receiver);
-                            return -1;
+                            if(!isalnum(receiver[anzempf][j]))
+                            {
+                                free(receiver);
+                                return -1;
+                            }
                         }
+                        anzempf++;
+                        break;
                     }
-                    anzempf++;
-                    break;
 
 				case 1: //Betreff
 					subject = (char *)malloc(strlen(buffer)+1);
