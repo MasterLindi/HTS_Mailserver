@@ -16,6 +16,7 @@
 #ifndef functions_h
 #define functions_h
 
+ssize_t readline (int , void *, size_t);
 int loginuser(int, char **);
 int sendmail(int, char *, char *);
 int listmail(int, char *, char *);

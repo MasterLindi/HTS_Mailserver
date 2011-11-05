@@ -1,7 +1,7 @@
 #include "serverfunctions.h"
 
 #define BUF 1024
-#define IPLOCK 30
+#define IPLOCK 120
 
 short port = 0;
 char *spool = NULL;
@@ -44,13 +44,11 @@ int findcom(char s[BUF])
 
 void * runclient(void *arg)
 {
-	args *arg2 = arg;
-	
+	args *arg2 = arg;	
 	
 	int new_socket = arg2->socket;
 	struct sockaddr_in client = arg2->address;
 	short attempt = 0;
-	short login = 0;
 	char buffer[BUF];  
 	char *username = NULL;
 	 int quit = 0;
@@ -58,7 +56,7 @@ void * runclient(void *arg)
 	     
 	     if (new_socket > 0)
 	     {
-	        //printf ("Client connected from %s:%d...\n", inet_ntoa (cliaddress.sin_addr),ntohs(cliaddress.sin_port));
+	        printf ("Client connected from %s:%d...\n", inet_ntoa (client.sin_addr),ntohs(client.sin_port));
 	        strcpy(buffer,"Welcome to our Mail-Server, Please enter your command:\n");
 	        send(new_socket, buffer, strlen(buffer),0);
 	     }
@@ -129,10 +127,12 @@ void * runclient(void *arg)
 		           		break;
 	           }
 	           
+	           //Client sperren nach 3 Anmeldeversuchen
 	           if(attempt >= 3)
 	           {
 		           struct host *tmp;
 		           
+		           //Client in Liste speichern
 		           if(locked == NULL)
 		           {
 			           locked = malloc(sizeof(struct host));
@@ -147,11 +147,12 @@ void * runclient(void *arg)
 			           		tmp = tmp->next;			           
 			           tmp->next = malloc(sizeof(struct host));			           
 			           tmp = tmp->next;
-			            locked->ip = strdup(inet_ntoa (client.sin_addr));
+			           tmp->ip = strdup(inet_ntoa (client.sin_addr));
 			           tmp->time = time(NULL);
 			           tmp->next = NULL;
 		           }
 		           
+		           //Nachricht an Server senden
 		           strcpy(buffer, "Login three times failed! You ip-address is locked!\n");
 		           send(new_socket, buffer, strlen(buffer),0);
 		           quit = 1;
@@ -180,8 +181,6 @@ void * runclient(void *arg)
 int main (int argc, char *argv[])
 {
 	pthread_t client;
-	
-	
 	
 	//Sockets for the connections
 	int create_socket, new_socket;
@@ -226,43 +225,48 @@ int main (int argc, char *argv[])
   	
   	listen (create_socket, 5);
   
-  	addrlen = sizeof (struct sockaddr_in);
-  	
-  	
+  	addrlen = sizeof (struct sockaddr_in);  	
 
 	while (1) 
 	{
-	     printf("Waiting for connections...\n");
+	     printf("Waiting for connections...\n");	
 	     
-	     args arg;      
+	      //Create new client socket
+		 new_socket = accept (create_socket, (struct sockaddr *) &cliaddress, &addrlen );		     
+	     
+	     args arg;    
 	     short lock = 0;
+	     double diff;
+	     
 	     struct host *tmp = locked;
-	     
-	     //Create new client socket
-	     new_socket = accept (create_socket, (struct sockaddr *) &cliaddress, &addrlen );	 
-	     
 	     while(tmp != NULL)
-	     {
-		     printf("%s %s\n", inet_ntoa(cliaddress.sin_addr), tmp->ip);
+	     { 
 		     if(strcmp(inet_ntoa(cliaddress.sin_addr), tmp->ip) == 0)
 		     {
-		     	lock = 1;
-		     	break;
-		     }
+				 lock = 1;
+				 diff = difftime(time(NULL),tmp->time);
+				 if(diff >= IPLOCK)
+					lock = 0;
+				 break;
+			 }
 		     
 		     tmp = tmp->next;
-	     } 
+		 }
 	     
 	     if(lock == 0)
-	     {	     
-	     	arg.address = cliaddress;
-	     	arg.socket = new_socket;
-	     	pthread_create (&client, NULL, runclient, &arg);	
-	     }   
-	     else
-	     {
-		     printf("Client locked");
-	     }
+	     {	          
+			
+			arg.address = cliaddress;
+			arg.socket = new_socket;
+			pthread_create (&client, NULL, runclient, &arg);	
+		}
+		else
+		{
+			close(new_socket);			
+			diff = difftime(time(NULL), tmp->time);
+			printf("Client %s locked! %.2lf left\n", inet_ntoa(cliaddress.sin_addr), diff);
+		}
+	    
 	}
 	  
 	close (create_socket);
