@@ -12,7 +12,7 @@
 
 short port = 0;
 
-const char *options[] = { "quit", "send", "list", "read", "del" };  //Command-options
+const char *options[] = { "quit", "send", "list", "read", "del", "login" };  //Command-options
 
 int findcom(char s[BUF])            //Command-finder
 {
@@ -26,6 +26,9 @@ int findcom(char s[BUF])            //Command-finder
 
 	if(strncmp(s, options[4], 3) == 0)
 			return 4;
+
+    if(strncmp(s, options[5], 5) == 0)
+			return 5;
 
 	return -1;
 }
@@ -96,6 +99,10 @@ int main (int argc, char **argv) {
 		           case 4:
 		           		delcom(create_socket, buffer);
 		           		break;
+
+                   case 5:
+                        logincom(create_socket,buffer);
+                        break;
 
 		           default:
 		           		printf("Undefinded command\n");
