@@ -316,9 +316,9 @@ int sendmail(int socket, char *spool, char *username)
 		fp = fopen(confpath, "r");
 		fscanf(fp, "%s", bufid);
 		fclose(fp);
-	}
 
-	
+
+
 
 	//Pfad fertig bauen
 	strcat(mailpath, "/");
@@ -370,6 +370,7 @@ int sendmail(int socket, char *spool, char *username)
 	free(receiver);
 	free(subject);
 	free(content);
+	free(attachment);
 
 	return 0;
 }

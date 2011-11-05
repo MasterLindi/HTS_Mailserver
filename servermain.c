@@ -46,17 +46,7 @@ int findcom(char s[BUF])
 void * runclient(void *arg)
 {
 
-	args *arg2 = arg;
-
-
-	int new_socket = arg2->socket;
-	struct sockaddr_in client = arg2->address;
-	short attempt = 0;
 	short login = 0;
-	char buffer[BUF];
-	char *username = NULL;
-	username = (char *)malloc(strlen("chrisi")+1);
-    strcpy(username,"chrisi\n");
 
 	args *arg2 = arg; //Argumente casten
 
@@ -66,12 +56,12 @@ void * runclient(void *arg)
 	short attempt = 0; //Versuche
 	char buffer[BUF];
 	char *username = NULL; //Benutzername
-
+	username = (char *)malloc(strlen("chrisi")+1);
+	strcpy(username,"chrisi\n");
 	 int quit = 0;
 	 int size = 0;
 
-	 username = (char *)malloc(4);
-	 strcpy(username, "oma\n");
+
 
 	     if (new_socket > 0)
 	     {
