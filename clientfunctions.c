@@ -159,6 +159,33 @@ void sendcom(int mysocket, char buffer[BUF])
     }
     while (strncmp(buffer, ".", 1) != 0);                   //Nachricht ist so lange bis ein newline und ein Punkt kommt
 
+    printf ("Wollen Sie eine Attachment mitsenden: (y,n) ");
+    char atach,filename[255];
+    atach = getchar();
+    while (getchar() != '\n');;
+    if (atach == 'y')
+    {
+        printf("Geben sie den Pfad + Dateinamen an: ");
+        fgets(filename,255,stdin);
+        filename [strlen(filename)-1] = '\0';
+        FILE *datei;
+
+        datei = fopen(filename, "r");
+
+        if(NULL == datei)
+        {
+            fprintf(stderr,"Konnte Datei %s nicht öffnen!\n", filename);
+            return;
+        }
+        char zeichen;
+
+       while(fgets(buffer, BUF, datei))
+        {
+
+
+        }
+
+    }
     do
     {
 
