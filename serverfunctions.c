@@ -76,6 +76,8 @@ int loginuser(int socket ,char **username)
 				case 1: //Passwort
 					pw = (char *)malloc(strlen(buffer)+1);
 					strcpy(pw, buffer);
+					pw[strlen(pw)-1] = '\0';
+					printf ("%s",pw);
 					break;
 			}
 		}
@@ -112,9 +114,11 @@ int sendmail(int socket, char *spool, char *username)
 	char buffer[BUF];
 	char mailpath[150];
 	char confpath[150];
+	char attachpath[150];
 	char **receiver = NULL;
 	char *subject = NULL;
 	char *content = NULL;
+	char *attachment = NULL;
 
     receiver = malloc(10*sizeof(char *));
 
@@ -178,6 +182,47 @@ int sendmail(int socket, char *spool, char *username)
 
 					break;
 
+                case 2: //Attachment
+                    if((strncmp(buffer, "attachaus", strlen("attachaus"))) == 0) //Ende des Attachment
+					{
+						break;
+					}
+					else //Einlesen des Inhaltes
+					{
+						if(attachment == NULL)
+						{
+							attachment = (char *)malloc(strlen(buffer)+1);
+
+							if(attachment == NULL)
+							{
+								free(receiver);
+								free(subject);
+								free(content);
+								free (attachment);
+								return -1;
+							}
+
+							strcpy(attachment, buffer);
+						}
+						else
+						{
+							len = strlen(attachment);
+							attachment = (char *)realloc(attachment, strlen(buffer)+len+1);
+
+							if(attachment == NULL)
+							{
+								free(receiver);
+								free(subject);
+								free(content);
+								free(attachment);
+								return -1;
+							}
+
+							strcat(attachment, buffer);
+						}
+					}
+					break;
+
 				default: //Inhalt
 
 					if(strncmp(buffer, ".", 1) == 0) //Ende der Nachricht
@@ -231,8 +276,8 @@ int sendmail(int socket, char *spool, char *username)
 		}
 
 		if (strncmp(buffer,"empfaus",strlen("empfaus"))==0 || i > 0)
-		{
-            i++;
+		{   if (i ==2 && (strncmp(buffer, "attachaus", strlen("attachaus"))==0)) i++;
+            if (i!= 2) i++;
 		}
 
 
@@ -247,6 +292,7 @@ int sendmail(int socket, char *spool, char *username)
 	strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
 	strcpy(confpath, mailpath);
 	strcat(confpath, "/conf.ini");
+	strcpy(attachpath,mailpath);
 
 	//Existiert das Verzeichnis bereits
 	if(access(mailpath, 00) == -1)
@@ -265,6 +311,10 @@ int sendmail(int socket, char *spool, char *username)
 	//Pfad fertig bauen
 	strcat(mailpath, "/");
 	strcat(mailpath, bufid);
+
+    strcat (attachpath, "/");
+    strcat (attachpath, bufid);
+    strcat(attachpath,".attach");
 
 	//Email abspeichern
 	if((fp = fopen(mailpath, "w")) == NULL)
@@ -286,7 +336,9 @@ int sendmail(int socket, char *spool, char *username)
 	fclose(fp);
 
 
-
+    fp = fopen(attachpath,"w");
+    fputs(attachment,fp);
+    fclose(fp);
     }
 	//Speicher freigeben
 	free(receiver);

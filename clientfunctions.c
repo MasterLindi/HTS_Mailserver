@@ -44,7 +44,6 @@ void sendcom(int mysocket, char buffer[BUF])
 
     int eingabe, size =0;
     char *allempf, *sendempf = NULL;
-
         eingabe = 1;
         int i = 0;
         printf ("Geben Sie einen oder mehrere Empfänger ein [max. 8 Zeichen]: ");
@@ -62,12 +61,9 @@ void sendcom(int mysocket, char buffer[BUF])
                         {
                                 fprintf (stderr, "\nÜngultige Zeichen beim 1.ten Empfänger\n");
                                 return;
-
                         }
                     }
             }
-
-
             if (allempf[strlen(allempf)-1] == '\n')
             {
                  send(mysocket, allempf, strlen(allempf), 0);
@@ -92,7 +88,6 @@ void sendcom(int mysocket, char buffer[BUF])
             }
             else
             {
-
                     for(int j = 0; j < strlen(allempf)-1; j++)
                     {
                         if(!isalnum(allempf[j]))
@@ -148,16 +143,7 @@ void sendcom(int mysocket, char buffer[BUF])
 
     send(mysocket, buffer, strlen (buffer), 0);                             //Betreff wird übermittelt
 
-    printf("Geben Sie ihre Nachricht ein!\n");
-
-    do
-    {
-        fgets(buffer, BUF, stdin);
-        send(mysocket, buffer, strlen (buffer), 0);         //Nachricht wird übermittelt
-    }
-    while (strncmp(buffer, ".", 1) != 0);                   //Nachricht ist so lange bis ein newline und ein Punkt kommt
-
-    printf ("Wollen Sie eine Attachment mitsenden: (y,n) ");
+     printf ("Wollen Sie eine Attachment mitsenden: (y,n) ");
     char atach,filename[255];
     atach = getchar();
     while (getchar() != '\n');;
@@ -175,15 +161,25 @@ void sendcom(int mysocket, char buffer[BUF])
             fprintf(stderr,"Konnte Datei %s nicht öffnen!\n", filename);
             return;
         }
-        char zeichen;
-
        while(fgets(buffer, BUF, datei))
         {
 
-
+            send(mysocket, buffer, strlen (buffer), 0);
         }
-
+    strcpy(buffer,"attachaus\n");
+    send(mysocket, buffer, strlen (buffer), 0);
     }
+
+    printf("Geben Sie ihre Nachricht ein!\n");
+
+    do
+    {
+        fgets(buffer, BUF, stdin);
+        send(mysocket, buffer, strlen (buffer), 0);         //Nachricht wird übermittelt
+    }
+    while (strncmp(buffer, ".", 1) != 0);                   //Nachricht ist so lange bis ein newline und ein Punkt kommt
+
+
     do
     {
 
@@ -426,10 +422,11 @@ void logincom(int mysocket, char buffer[BUF])
         }
 
         strcpy(buffer,password);
-
+        strcat(buffer,"\n");
 
     }while (eingabe !=1);
      send(mysocket, buffer, strlen (buffer), 0);
+
 
         do                                                    //Ausgabe der Serverantwort
     {

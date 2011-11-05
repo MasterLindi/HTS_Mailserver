@@ -55,7 +55,7 @@ void * runclient(void *arg)
 	char buffer[BUF];
 	char *username = NULL;
 	username = (char *)malloc(strlen("chrisi")+1);
-    strcpy(username,"chrisi");
+    strcpy(username,"chrisi\n");
 	 int quit = 0;
 	 int size = 0;
 
@@ -116,7 +116,7 @@ void * runclient(void *arg)
 		           case 5: //LOGIN
 		           		if(loginuser(new_socket, &username) == 0)
 		           		{
-		           		    strcpy(buffer,"OK\n");
+		           		    strcpy(buffer,"\nOK\n");
 		           		}
 		           		else
 		           		{
