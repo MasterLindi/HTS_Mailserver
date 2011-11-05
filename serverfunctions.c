@@ -43,6 +43,9 @@ int loginuser(int socket ,char **username)
 	char *user;
 	char *pw;
 
+	if(username != NULL)
+		return -1;
+
 	for(i = 0; i < 2; i++)
 	{
 		size = readline(socket, buffer, BUF-1);
@@ -108,7 +111,6 @@ int sendmail(int socket, char *spool, char *username)
 	int id = 0;
 	int anzempf = 0;
 
-
 	char bufid[33];
 	FILE *fp = NULL;
 	char buffer[BUF];
@@ -121,7 +123,6 @@ int sendmail(int socket, char *spool, char *username)
 	char *attachment = NULL;
 
     receiver = malloc(10*sizeof(char *));
-
 
 	if(username == NULL)
 		return -1;
@@ -287,6 +288,7 @@ int sendmail(int socket, char *spool, char *username)
     for (int i = 0; i<anzempf; i++)
     {
         //Verzeichnispfad erstellen
+
 	strcpy(mailpath, spool);
 	strcat(mailpath, "/");
 	strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
@@ -294,19 +296,29 @@ int sendmail(int socket, char *spool, char *username)
 	strcat(confpath, "/conf.ini");
 	strcpy(attachpath,mailpath);
 
-	//Existiert das Verzeichnis bereits
-	if(access(mailpath, 00) == -1)
-	{
-		mkdir(mailpath, 0777); //Verzeichnis für den Benutzer erstellen
-		fp = fopen(confpath, "w");
-		fprintf(fp, "%d", 1);
+		strcpy(mailpath, spool);
+		strcat(mailpath, "/");
+		strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
+		strcpy(confpath, mailpath);
+		strcat(confpath, "/conf.ini");
+
+		//Existiert das Verzeichnis bereits
+		if(access(mailpath, 00) == -1)
+		{
+			mkdir(mailpath, 0777); //Verzeichnis für den Benutzer erstellen
+			fp = fopen(confpath, "w");
+			fprintf(fp, "%d", 1);
+			fclose(fp);
+		}
+
+
+		//ID aus dem Config-File lesen
+		fp = fopen(confpath, "r");
+		fscanf(fp, "%s", bufid);
 		fclose(fp);
 	}
 
-	//ID aus dem Config-File lesen
-	fp = fopen(confpath, "r");
-	fscanf(fp, "%s", bufid);
- 	fclose(fp);
+	
 
 	//Pfad fertig bauen
 	strcat(mailpath, "/");
@@ -327,18 +339,32 @@ int sendmail(int socket, char *spool, char *username)
 
 	fclose(fp);
 
-	//ID im Config-File erhöhen und in Datei schrieben
-	id = strtol(bufid, NULL, 10);
-	id ++;
+		//Email abspeichern
+		if((fp = fopen(mailpath, "w")) == NULL)
+			return -1;
 
-	fp = fopen(confpath, "w");
-	fprintf(fp, "%d", id);
-	fclose(fp);
+
+		fputs(username, fp);
+		fputs(receiver[i], fp);
+		fputs(subject, fp);
+		fputs(content, fp);
+
+		fclose(fp);
+
+		//ID im Config-File erhöhen und in Datei schrieben
+		id = strtol(bufid, NULL, 10);
+		id ++;
 
 
     fp = fopen(attachpath,"w");
     fputs(attachment,fp);
     fclose(fp);
+
+		fp = fopen(confpath, "w");
+		fprintf(fp, "%d", id);
+		fclose(fp);
+
+
     }
 	//Speicher freigeben
 	free(receiver);

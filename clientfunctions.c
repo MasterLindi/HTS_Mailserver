@@ -44,8 +44,10 @@ void sendcom(int mysocket, char buffer[BUF])
 
     int eingabe, size =0;
     char *allempf, *sendempf = NULL;
+
         eingabe = 1;
         int i = 0;
+        int j;
         printf ("Geben Sie einen oder mehrere Empfänger ein [max. 8 Zeichen]: ");
         fgets (buffer, BUF, stdin);
         allempf = strtok(buffer, ";");
@@ -55,15 +57,19 @@ void sendcom(int mysocket, char buffer[BUF])
                         return;
         }
         else
-            {       for(int j = 0; j < strlen(allempf)-1; j++)
+            {  
+				     for(j = 0; j < strlen(allempf)-1; j++)
                     {
                         if(!isalnum(allempf[j]))
                         {
                                 fprintf (stderr, "\nÜngultige Zeichen beim 1.ten Empfänger\n");
                                 return;
+
                         }
                     }
             }
+
+
             if (allempf[strlen(allempf)-1] == '\n')
             {
                  send(mysocket, allempf, strlen(allempf), 0);
@@ -88,7 +94,8 @@ void sendcom(int mysocket, char buffer[BUF])
             }
             else
             {
-                    for(int j = 0; j < strlen(allempf)-1; j++)
+				
+                    for(j = 0; j < strlen(allempf)-1; j++)
                     {
                         if(!isalnum(allempf[j]))
                         {
@@ -161,6 +168,8 @@ void sendcom(int mysocket, char buffer[BUF])
             fprintf(stderr,"Konnte Datei %s nicht öffnen!\n", filename);
             return;
         }
+        char zeichen;
+
        while(fgets(buffer, BUF, datei))
         {
 
@@ -424,8 +433,12 @@ void logincom(int mysocket, char buffer[BUF])
         strcpy(buffer,password);
         strcat(buffer,"\n");
 
+
     }while (eingabe !=1);
+    
+    printf("send_before");
      send(mysocket, buffer, strlen (buffer), 0);
+     printf("send_after");
 
 
         do                                                    //Ausgabe der Serverantwort
