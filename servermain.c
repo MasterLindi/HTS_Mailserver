@@ -56,8 +56,8 @@ void * runclient(void *arg)
 	short attempt = 0; //Versuche
 	char buffer[BUF];
 	char *username = NULL; //Benutzername
-	username = (char *)malloc(strlen("chrisi")+1);
-	strcpy(username,"chrisi\n");
+	username = (char *)malloc(strlen("daniel")+1);
+	strcpy(username,"daniel\n");
 	 int quit = 0;
 	 int size = 0;
 
@@ -117,10 +117,11 @@ void * runclient(void *arg)
 		           		send(new_socket, buffer, strlen(buffer),0);
 		           		break;
 
+
 		           case 5: //LOGIN
 		           		if(loginuser(new_socket, &username) == 0)
 		           		{
-		           		    strcpy(buffer,"\nOK\n");
+		           		    strcpy(buffer,"OK\n");
 		           		}
 		           		else
 		           		{
@@ -276,7 +277,9 @@ int main (int argc, char *argv[])
 	     }
 	     else
 	     {
-		     printf("Client locked");
+		     	close(new_socket);
+			diff = difftime(time(NULL), tmp->time);
+			printf("Client %s locked! %.0lf sec left\n", inet_ntoa(cliaddress.sin_addr), IPLOCK - diff);
 	     }
 	}
 

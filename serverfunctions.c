@@ -43,8 +43,8 @@ int loginuser(int socket ,char **username)
 	char *user;
 	char *pw;
 
-	if(username != NULL)
-		return -1;
+	/*if(username != NULL)
+	return -1;*/
 
 	for(i = 0; i < 2; i++)
 	{
@@ -80,7 +80,6 @@ int loginuser(int socket ,char **username)
 					pw = (char *)malloc(strlen(buffer)+1);
 					strcpy(pw, buffer);
 					pw[strlen(pw)-1] = '\0';
-					printf ("%s",pw);
 					break;
 			}
 		}
@@ -88,9 +87,10 @@ int loginuser(int socket ,char **username)
 		{
 			return -1;
 		}
+
 	}
 
-	*username = (char *)malloc(strlen(user)+1);
+	 *username = (char *)malloc(strlen(user)+1);
 	strcpy(*username, user);
 
 	free(user);
@@ -110,6 +110,7 @@ int sendmail(int socket, char *spool, char *username)
 	int quit = 0;
 	int id = 0;
 	int anzempf = 0;
+	int attach = 1;
 
 	char bufid[33];
 	FILE *fp = NULL;
@@ -122,7 +123,7 @@ int sendmail(int socket, char *spool, char *username)
 	char *content = NULL;
 	char *attachment = NULL;
 
-    receiver = malloc(10*sizeof(char *));
+    receiver = malloc(100*sizeof(char *));
 
 	if(username == NULL)
 		return -1;
@@ -184,7 +185,13 @@ int sendmail(int socket, char *spool, char *username)
 					break;
 
                 case 2: //Attachment
-                    if((strncmp(buffer, "attachaus", strlen("attachaus"))) == 0) //Ende des Attachment
+                    if ((strncmp(buffer, "noattach", strlen("noattach")))==0)
+                    {
+                        attach = 0;
+                        i++;
+                        break;
+                    }
+                    if((strncmp(buffer, "attachaus", strlen("attachaus"))) == 0)  //Ende des Attachment
 					{
 						break;
 					}
@@ -276,7 +283,7 @@ int sendmail(int socket, char *spool, char *username)
 			return -1;
 		}
 
-		if (strncmp(buffer,"empfaus",strlen("empfaus"))==0 || i > 0)
+		if ((strncmp(buffer,"empfaus",strlen("empfaus")))==0 || i > 0)
 		{   if (i ==2 && (strncmp(buffer, "attachaus", strlen("attachaus"))==0)) i++;
             if (i!= 2) i++;
 		}
@@ -296,11 +303,7 @@ int sendmail(int socket, char *spool, char *username)
 	strcat(confpath, "/conf.ini");
 	strcpy(attachpath,mailpath);
 
-		strcpy(mailpath, spool);
-		strcat(mailpath, "/");
-		strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
-		strcpy(confpath, mailpath);
-		strcat(confpath, "/conf.ini");
+
 
 		//Existiert das Verzeichnis bereits
 		if(access(mailpath, 00) == -1)
@@ -324,9 +327,10 @@ int sendmail(int socket, char *spool, char *username)
 	strcat(mailpath, "/");
 	strcat(mailpath, bufid);
 
-    strcat (attachpath, "/");
+     strcat (attachpath, "/");
     strcat (attachpath, bufid);
     strcat(attachpath,".attach");
+
 
 	//Email abspeichern
 	if((fp = fopen(mailpath, "w")) == NULL)
@@ -355,10 +359,13 @@ int sendmail(int socket, char *spool, char *username)
 		id = strtol(bufid, NULL, 10);
 		id ++;
 
+        if (attach != 0)
+        {
+            if((fp = fopen(attachpath, "w")) == NULL) return -1;
+            fputs(attachment,fp);
+            fclose(fp);
+        }
 
-    fp = fopen(attachpath,"w");
-    fputs(attachment,fp);
-    fclose(fp);
 
 		fp = fopen(confpath, "w");
 		fprintf(fp, "%d", id);
@@ -447,9 +454,10 @@ int readmail(int socket, char *spool, char *username)
 	int i;
 	int j;
 	int len;
-	FILE *fp;
+	FILE *fp, *fpattach;
 	char buffer[BUF];
 	char mailpath[150];
+	char attachpath[150];
 	char *msg = NULL;
 
 	if(username == NULL)
@@ -494,12 +502,45 @@ int readmail(int socket, char *spool, char *username)
 
 	strcat(mailpath, "/");
 	strncat(mailpath, msg, strlen(msg)-OVERFLOW);
+	strcpy(attachpath,mailpath);
+	strcat(attachpath,".attach");
 
 	//Mail-File öffnen, Prüfung ob Mail vorhanden
 	if((fp = fopen(mailpath, "r")) == NULL)
 	{
 		return -1;
 	}
+
+	//Prüfen ob Nachricht ein Attachment enthält
+	if ((fpattach = fopen(attachpath,"r"))==NULL)
+	{   strcpy (buffer,"false\n");
+	    send(socket, buffer, strlen(buffer),0);
+	}
+	else
+	{
+	    strcpy (buffer,"true\n");
+	    send(socket, buffer, strlen(buffer),0);
+
+	    //Antwort ob Benutzer Mail lesen will
+        size = readline(socket, buffer, BUF-1);
+        if (size > 0)
+        {
+            buffer[size] = '\0';
+            if ((strncmp (buffer,"showattach",strlen("showattach")))== 0)
+            {
+                while (fgets(buffer,BUF,fpattach))
+                {
+                    send(socket,buffer,strlen(buffer),0);
+                }
+                strcpy(buffer,"attachaus\n");
+                send(socket,buffer,strlen(buffer),0);
+            }
+        }
+        fclose(fpattach);
+
+	}
+
+
 
 	//Gewählte Mail an Client schicken
 	while(fgets(buffer, BUF, fp))
@@ -509,6 +550,7 @@ int readmail(int socket, char *spool, char *username)
 
 	//Mail-File schließen
 	fclose(fp);
+
 
 	//Speicher freigeben
 	free(msg);
@@ -524,6 +566,7 @@ int delmail(int socket, char *spool, char *username)
 	FILE *fp;
 	char buffer[BUF];
 	char mailpath[150];
+	char attachpath[150];
 	char *msg = NULL;
 
 	if(username == NULL)
@@ -568,9 +611,16 @@ int delmail(int socket, char *spool, char *username)
 
 	strcat(mailpath, "/");
 	strncat(mailpath, msg, strlen(msg)-OVERFLOW);
+	strcpy(attachpath,mailpath);
+	strcat(attachpath,".attach");
+
 
 	//Mail löschen
 	if(remove(mailpath) != 0)
+		return -1;
+
+    //Attachment löschen
+	if(remove(attachpath) != 0)
 		return -1;
 
 	//Speicher freigeben
