@@ -1,6 +1,5 @@
 #include "serverfunctions.h"
 
-
 #define BUF 1024
 #define IPLOCK 120
 
@@ -45,18 +44,7 @@ int findcom(char s[BUF])
 
 void * runclient(void *arg)
 {
-
-	args *arg2 = arg;
-
-
-	int new_socket = arg2->socket;
-	struct sockaddr_in client = arg2->address;
-	short attempt = 0;
-	short login = 0;
-	char buffer[BUF];
-	char *username = NULL;
-	username = (char *)malloc(strlen("chrisi")+1);
-    strcpy(username,"chrisi\n");
+	
 
 	args *arg2 = arg; //Argumente casten
 
@@ -70,8 +58,8 @@ void * runclient(void *arg)
 	 int quit = 0;
 	 int size = 0;
 
-	 username = (char *)malloc(4);
-	 strcpy(username, "oma\n");
+	 //username = (char *)malloc(8);
+	 //strcpy(username, "daniel\n");
 
 	     if (new_socket > 0)
 	     {
@@ -130,7 +118,7 @@ void * runclient(void *arg)
 		           case 5: //LOGIN
 		           		if(loginuser(new_socket, &username) == 0)
 		           		{
-		           		    strcpy(buffer,"\nOK\n");
+		           		    strcpy(buffer,"OK\n");
 		           		}
 		           		else
 		           		{
@@ -199,8 +187,6 @@ void * runclient(void *arg)
 int main (int argc, char *argv[])
 {
 	pthread_t client;
-
-
 
 	//Sockets for the connections
 	int create_socket, new_socket;
@@ -286,7 +272,9 @@ int main (int argc, char *argv[])
 	     }
 	     else
 	     {
-		     printf("Client locked");
+			 close(new_socket);
+			 diff = difftime(time(NULL), tmp->time);
+		     printf("Client locked! %lf sec left\n", IPLOCK - diff);
 	     }
 	}
 

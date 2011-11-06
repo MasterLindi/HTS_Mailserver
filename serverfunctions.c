@@ -1,7 +1,20 @@
 #include "serverfunctions.h"
 
+//Socket
 #define BUF 1024
 #define OVERFLOW 1
+
+//LDAP
+#define LDAP_HOST "ldap.technikum-wien.at"
+#define LDAP_PORT 389
+#define SEARCHBASE "dc=technikum-wien,dc=at"
+#define SCOPE LDAP_SCOPE_SUBTREE
+
+#define BIND_USER "uid=if10b015,ou=People,dc=technikum-wien,dc=at"		/* anonymous bind with user and pw NULL */
+#define BIND_PW ""
+
+//Mutex
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 ssize_t readline (int fd, void *vptr, size_t maxlen)
 {
@@ -33,6 +46,7 @@ ssize_t readline (int fd, void *vptr, size_t maxlen)
 	 return (n) ;
 }
 
+//Benutzer einloggen
 int loginuser(int socket ,char **username)
 {
 	int size;
@@ -43,7 +57,7 @@ int loginuser(int socket ,char **username)
 	char *user;
 	char *pw;
 
-	if(username != NULL)
+	if(*username != NULL) //Benutzer bereits eingeloggt
 		return -1;
 
 	for(i = 0; i < 2; i++)
@@ -56,7 +70,7 @@ int loginuser(int socket ,char **username)
 
 			switch(i)
 			{
-				case 0: //Benutzer
+				case 0: //Benutzername auslesen
 					user = (char *)malloc(strlen(buffer)+1);
 					strcpy(user, buffer);
 
@@ -76,11 +90,10 @@ int loginuser(int socket ,char **username)
 					}
 					break;
 
-				case 1: //Passwort
+				case 1: //Passwort auslesen
 					pw = (char *)malloc(strlen(buffer)+1);
 					strcpy(pw, buffer);
 					pw[strlen(pw)-1] = '\0';
-					printf ("%s",pw);
 					break;
 			}
 		}
@@ -89,9 +102,14 @@ int loginuser(int socket ,char **username)
 			return -1;
 		}
 	}
-
-	*username = (char *)malloc(strlen(user)+1);
-	strcpy(*username, user);
+	
+	if(ldapauth(user, pw) == 0)
+	{
+		*username = (char *)malloc(strlen(user)+1);
+		strcpy(*username, user);
+	}
+	else
+		return -1;
 
 	free(user);
 	free(pw);
@@ -99,6 +117,135 @@ int loginuser(int socket ,char **username)
 	return 0;
 }
 
+int ldapauth(char *user, char *password)
+{
+   LDAP *ld;			/* LDAP resource handle */
+   LDAPMessage *result, *e;	/* LDAP result handle */
+   BerElement *ber;		/* array of attributes */
+   char *attribute;
+   char filter[100];
+   char *dn;
+   char **vals;
+
+   int i,rc=0;
+
+   char *attribs[3];		/* attribute array for search */
+
+   attribs[0]=strdup("uid");		/* return uid and cn of entries */
+   attribs[1]=strdup("cn");
+   attribs[2]=NULL;		/* array must be NULL terminated */
+   
+   
+   strcpy(filter, "(uid=");   
+   strncat(filter, user, strlen(user)-OVERFLOW);
+   strcat(filter, ")");
+   
+   /* setup LDAP connection */
+   if ((ld=ldap_init(LDAP_HOST, LDAP_PORT)) == NULL)
+   {
+      perror("ldap_init failed");
+      return -1;
+   }
+
+   printf("connected to LDAP server %s on port %d\n",LDAP_HOST,LDAP_PORT);
+
+   /* anonymous bind */
+   rc = ldap_simple_bind_s(ld,BIND_USER,BIND_PW);
+
+   if (rc != LDAP_SUCCESS)
+   {
+      fprintf(stderr,"LDAP error: %s\n",ldap_err2string(rc));
+      return -1;
+   }
+   else
+   {
+      printf("bind successful\n");
+   }
+
+   /* perform ldap search */
+   rc = ldap_search_s(ld, SEARCHBASE, SCOPE, filter, attribs, 0, &result);
+
+   if (rc != LDAP_SUCCESS)
+   {
+      fprintf(stderr,"LDAP search error: %s\n",ldap_err2string(rc));
+      return -1;
+   }
+
+   printf("Total results: %d\n", ldap_count_entries(ld, result));
+   
+   if(ldap_count_entries(ld, result) == 1)
+   {	  
+	   e = ldap_first_entry(ld, result);
+	   printf("DN: %s\n", ldap_get_dn(ld,e));
+	   dn = strdup(ldap_get_dn(ld,e));
+   }
+   else
+   {
+	   return -1;
+   }
+   
+   /* free memory used for result */
+   ldap_msgfree(result);
+   free(attribs[0]);
+   free(attribs[1]);
+   printf("LDAP search suceeded\n");
+   
+   ldap_unbind(ld);
+   
+   if(ldaplogin(dn, password) == -1)
+   {	  
+	   return -1;
+   }
+   
+   return 0;
+}
+
+int ldaplogin(char *dn, char *pw)
+{
+	LDAP *ld;			/* LDAP resource handle */
+   LDAPMessage *result, *e;	/* LDAP result handle */
+   BerElement *ber;		/* array of attributes */
+   char *attribute;
+   char **vals;
+   int i,rc=0;
+
+   char *attribs[3];		/* attribute array for search */
+
+   attribs[0]=strdup("uid");		/* return uid and cn of entries */
+   attribs[1]=strdup("cn");
+   attribs[2]=NULL;		/* array must be NULL terminated */
+   
+   /* setup LDAP connection */
+   if ((ld=ldap_init(LDAP_HOST, LDAP_PORT)) == NULL)
+   {
+      perror("ldap_init failed");
+      return -1;
+   }
+
+   printf("connected to LDAP server %s on port %d\n",LDAP_HOST,LDAP_PORT);
+
+   /* anonymous bind */
+   rc = ldap_simple_bind_s(ld,dn,pw);
+
+   if (rc != LDAP_SUCCESS)
+   {
+      fprintf(stderr,"LDAP error: %s\n",ldap_err2string(rc));
+      return -1;
+   }
+   else
+   {
+      printf("bind successful\n");
+   }
+   
+   /* free memory used for result */
+   ldap_msgfree(result);
+   free(attribs[0]);
+   free(attribs[1]);
+   printf("LDAP search suceeded\n");
+   
+   ldap_unbind(ld);
+	return 0;
+}
 
 //Mail senden
 int sendmail(int socket, char *spool, char *username)
@@ -110,6 +257,7 @@ int sendmail(int socket, char *spool, char *username)
 	int quit = 0;
 	int id = 0;
 	int anzempf = 0;
+	int status;
 
 	char bufid[33];
 	FILE *fp = NULL;
@@ -138,28 +286,30 @@ int sendmail(int socket, char *spool, char *username)
 			switch(i)
 			{
 				case 0: //Empfänger
-                    if ((strncmp(buffer,"empfaus",strlen("empfaus")))== 0) break;
-                    else
-                    {
-                        receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
-                        strcpy(receiver[anzempf], buffer);
-                        len = strlen(receiver[anzempf]);
+				    if ((strncmp(buffer,"empfaus",strlen("empfaus")))== 0) 
+						break;
+				    else
+				    {
+				        receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
+				        strcpy(receiver[anzempf], buffer);
+				        len = strlen(receiver[anzempf]);
 
-                        if(len-OVERFLOW > 8) //Länge des Empfängers größer 8, wenn ja Fehler
-                        return -1;
+				        if(len-OVERFLOW > 8) //Länge des Empfängers größer 8, wenn ja Fehler
+				        return -1;
 
-                        //Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-                        for(j = 0; j < len-OVERFLOW; j++)
-                        {
-                            if(!isalnum(receiver[anzempf][j]))
-                            {
-                                free(receiver);
-                                return -1;
-                            }
-                        }
-                        anzempf++;
-                        break;
-                    }
+				        //Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
+				        for(j = 0; j < len-OVERFLOW; j++)
+				        {
+				            if(!isalnum(receiver[anzempf][j]))
+				            {
+				                free(receiver);
+				                return -1;
+				            }
+				        }
+				        anzempf++;
+						i--;				        
+				    }
+				break;
 
 				case 1: //Betreff
 					subject = (char *)malloc(strlen(buffer)+1);
@@ -221,6 +371,7 @@ int sendmail(int socket, char *spool, char *username)
 
 							strcat(attachment, buffer);
 						}
+						i--;
 					}
 					break;
 
@@ -275,17 +426,12 @@ int sendmail(int socket, char *spool, char *username)
 		{
 			return -1;
 		}
-
-		if (strncmp(buffer,"empfaus",strlen("empfaus"))==0 || i > 0)
-		{   if (i ==2 && (strncmp(buffer, "attachaus", strlen("attachaus"))==0)) i++;
-            if (i!= 2) i++;
-		}
-
-
+		i++;
 	}
 	while(quit == 0);
 
-    for (int i = 0; i<anzempf; i++)
+	status = pthread_mutex_lock(&mutex);
+    for ( i = 0; i<anzempf; i++)
     {
         //Verzeichnispfad erstellen
 
@@ -294,18 +440,15 @@ int sendmail(int socket, char *spool, char *username)
 	strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
 	strcpy(confpath, mailpath);
 	strcat(confpath, "/conf.ini");
-	strcpy(attachpath,mailpath);
-
-		strcpy(mailpath, spool);
-		strcat(mailpath, "/");
-		strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
-		strcpy(confpath, mailpath);
-		strcat(confpath, "/conf.ini");
+	strcpy(attachpath,mailpath);	
+	strcat(attachpath,"/attach/");
+	
 
 		//Existiert das Verzeichnis bereits
 		if(access(mailpath, 00) == -1)
 		{
 			mkdir(mailpath, 0777); //Verzeichnis für den Benutzer erstellen
+			mkdir(attachpath, 0777); //Attachmentverzeichnis für den Benutzer erstellen
 			fp = fopen(confpath, "w");
 			fprintf(fp, "%d", 1);
 			fclose(fp);
@@ -316,33 +459,16 @@ int sendmail(int socket, char *spool, char *username)
 		fp = fopen(confpath, "r");
 		fscanf(fp, "%s", bufid);
 		fclose(fp);
-	}
 
+		//Pfad fertig bauen
+		strcat(mailpath, "/");
+		strcat(mailpath, bufid);
+
+    	strcat (attachpath, bufid);
 	
-
-	//Pfad fertig bauen
-	strcat(mailpath, "/");
-	strcat(mailpath, bufid);
-
-    strcat (attachpath, "/");
-    strcat (attachpath, bufid);
-    strcat(attachpath,".attach");
-
-	//Email abspeichern
-	if((fp = fopen(mailpath, "w")) == NULL)
-		return -1;
-
-	fputs(username, fp);
-	fputs(receiver[i], fp);
-	fputs(subject, fp);
-	fputs(content, fp);
-
-	fclose(fp);
-
 		//Email abspeichern
 		if((fp = fopen(mailpath, "w")) == NULL)
 			return -1;
-
 
 		fputs(username, fp);
 		fputs(receiver[i], fp);
@@ -351,14 +477,16 @@ int sendmail(int socket, char *spool, char *username)
 
 		fclose(fp);
 
+		if(attachment != NULL)
+		{
+	    		fp = fopen(attachpath,"w");
+	    		fputs(attachment,fp);
+	    		fclose(fp);
+		}
+		
 		//ID im Config-File erhöhen und in Datei schrieben
 		id = strtol(bufid, NULL, 10);
 		id ++;
-
-
-    fp = fopen(attachpath,"w");
-    fputs(attachment,fp);
-    fclose(fp);
 
 		fp = fopen(confpath, "w");
 		fprintf(fp, "%d", id);
@@ -366,6 +494,7 @@ int sendmail(int socket, char *spool, char *username)
 
 
     }
+    status = pthread_mutex_unlock(&mutex);
 	//Speicher freigeben
 	free(receiver);
 	free(subject);
@@ -407,7 +536,8 @@ int listmail(int socket, char *spool, char *username)
 			{
 				if( strcmp((*p).d_name, "..") != 0 &&
 					strcmp((*p).d_name, ".") != 0 &&
-					strcmp((*p).d_name, "conf.ini") != 0
+					strcmp((*p).d_name, "conf.ini") != 0 &&
+					strcmp((*p).d_name, "attach") != 0
 				)
 				{
 					//Betreff jeder Nachricht auslesen
@@ -520,6 +650,7 @@ int delmail(int socket, char *spool, char *username)
 	int size;
 	int j;
 	int len;
+	int status;
 	FILE *fp;
 	char buffer[BUF];
 	char mailpath[150];
@@ -554,6 +685,7 @@ int delmail(int socket, char *spool, char *username)
 			return -1;
 		}
 
+	status = pthread_mutex_lock(&mutex);
 	//Pfad erstellen
 	strcpy(mailpath, spool);
 	strcat(mailpath, "/");
@@ -571,6 +703,8 @@ int delmail(int socket, char *spool, char *username)
 	//Mail löschen
 	if(remove(mailpath) != 0)
 		return -1;
+	
+	status = pthread_mutex_unlock(&mutex);
 
 	//Speicher freigeben
 	free(msg);

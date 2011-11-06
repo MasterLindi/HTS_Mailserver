@@ -12,6 +12,10 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <time.h>
+#include <ldap.h>
+
+
+
 
 #ifndef functions_h
 #define functions_h

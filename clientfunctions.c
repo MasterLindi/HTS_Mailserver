@@ -162,6 +162,7 @@ void sendcom(int mysocket, char buffer[BUF])
         FILE *datei;
 
         datei = fopen(filename, "r");
+        printf("%s\n", filename);
 
         if(NULL == datei)
         {
@@ -172,12 +173,13 @@ void sendcom(int mysocket, char buffer[BUF])
 
        while(fgets(buffer, BUF, datei))
         {
-
+			printf("%s\n", buffer);
             send(mysocket, buffer, strlen (buffer), 0);
         }
-    strcpy(buffer,"attachaus\n");
-    send(mysocket, buffer, strlen (buffer), 0);
+    
     }
+strcpy(buffer,"attachaus\n");
+    send(mysocket, buffer, strlen (buffer), 0);
 
     printf("Geben Sie ihre Nachricht ein!\n");
 
@@ -436,13 +438,7 @@ void logincom(int mysocket, char buffer[BUF])
 
     }while (eingabe !=1);
     
-    printf("send_before");
      send(mysocket, buffer, strlen (buffer), 0);
-     printf("send_after");
-
-
-        do                                                    //Ausgabe der Serverantwort
-    {
 
         size = readline(mysocket, buffer, BUF-1);
 
@@ -451,8 +447,6 @@ void logincom(int mysocket, char buffer[BUF])
                 buffer[size] = '\0';
                 fputs(buffer,stdout);
         }
-
-    }   while (size == 0);
 }
 
 int getch()
