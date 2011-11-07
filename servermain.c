@@ -1,7 +1,9 @@
 #include "serverfunctions.h"
+#include <signal.h>
 
 #define BUF 1024
 #define IPLOCK 120
+#define PATHLOCK "lockedclients"
 
 short port = 0;
 char *spool = NULL;
@@ -40,6 +42,25 @@ int findcom(char s[BUF])
 		return 5;
 
 	return -1;
+}
+
+void signalhandler(int sig)
+{
+	struct host *tmp = locked;
+	FILE *fp;
+	char path[150];
+	printf("zugriff");
+	strcpy(path, spool);
+	strcat(path, PATHLOCK);
+	
+	fp = fopen(path, "w");
+	while(tmp != NULL)
+	{
+		fprintf(fp, "%s %ld\n", tmp->ip, tmp->time);
+		tmp = tmp->next;
+	}	
+	fclose(fp);
+	exit(0);
 }
 
 void * runclient(void *arg)
@@ -184,12 +205,14 @@ void * runclient(void *arg)
 
 int main (int argc, char *argv[])
 {
-	pthread_t client;
+	pthread_t client;	
 
 	//Sockets for the connections
 	int create_socket, new_socket;
   	socklen_t addrlen;
   	struct sockaddr_in address, cliaddress;
+	char pathlocked[150];
+	FILE *fp = NULL;	
 
   	//Argumente überprüfen
   	if(argc != 3) //Fehler, falls ein Argument fehlt
@@ -212,6 +235,49 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "Mailspoolverzeichnis %s existiert nicht!\n", spool);
 		return -1;
 	}
+	
+	strcpy(pathlocked, spool);
+	strcat(pathlocked, PATHLOCK);
+	
+	if((fp = fopen(pathlocked, "r")) != NULL)
+	{
+		time_t time;
+		char buf[BUF];
+		char ip[BUF];
+		struct host *tmp;
+
+		while(fgets(buf, BUF-1, fp))
+		{			
+			sscanf(buf, "%s %ld\n", ip, &time);
+			printf("%s %ld\n", ip, time);
+		           if(locked == NULL)
+		           {
+				
+			           locked = malloc(sizeof(struct host));
+				   locked->ip = strdup(ip);
+				   locked->time = time;			           
+			           locked->next = NULL;
+		           }
+		           else
+		           {
+			           tmp = locked;
+			           while(tmp->next != NULL)
+			           		tmp = tmp->next;
+			           tmp->next = malloc(sizeof(struct host));
+			           tmp = tmp->next;
+			           tmp->ip = strdup(ip);
+				   tmp->time = time;	
+			           tmp->next = NULL;
+		           }
+		}
+		fclose(fp);
+
+	}
+	else
+	{
+		fprintf(stderr, "%s doen't exist!\n", pathlocked);
+	}	
+	
 
 	//Socket erstellen
   	create_socket = socket (AF_INET, SOCK_STREAM, 0);
@@ -233,19 +299,21 @@ int main (int argc, char *argv[])
 
   	addrlen = sizeof (struct sockaddr_in);
 
+	signal(SIGINT,signalhandler);
+
 	while (1)
 	{
 
 	     printf("Waiting for connections...\n");
-
-	     args arg;
-	     short lock = 0;
-	     double diff;
+		args arg;
+		short lock = 0;
+		double diff;
 
 	     //Create new client socket
 	     new_socket = accept (create_socket, (struct sockaddr *) &cliaddress, &addrlen );
 
 	     struct host *tmp = locked;
+	     struct host *before = NULL;
 
 	     //Liste der gesperrten Client durchsuchen
 	     while(tmp != NULL)
@@ -255,9 +323,22 @@ int main (int argc, char *argv[])
 			 lock = 1;
 			 diff = difftime(time(NULL),tmp->time);
 			 if(diff >= IPLOCK)
+			 {
 				lock = 0;
+				if(tmp == locked)
+				{
+					locked = tmp->next;
+					free(tmp);
+				}
+				else
+				{
+					before->next = tmp->next;
+					free(tmp);
+				}
+  			 }
 			 break;
        		     }
+                     before = tmp;
 		     tmp = tmp->next;
 	     }
 

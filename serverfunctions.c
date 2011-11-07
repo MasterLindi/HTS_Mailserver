@@ -294,28 +294,29 @@ int sendmail(int socket, char *spool, char *username)
 			{
 				case 0: //Empfänger
 
-                    if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))== 0) break;
-                    else
-                    {
-                        receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
-                        strcpy(receiver[anzempf], buffer);
-                        len = strlen(receiver[anzempf]);
+				    if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))== 0) break;
+				    else
+				    {
+				        receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
+				        strcpy(receiver[anzempf], buffer);
+				        len = strlen(receiver[anzempf]);
 
-                        if(len-OVERFLOW > 8) //Länge des Empfängers größer 8, wenn ja Fehler
-                        return -1;
+				        if(len-OVERFLOW > 8) //Länge des Empfängers größer 8, wenn ja Fehler
+				        return -1;
 
-                        //Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-                        for(j = 0; j < len-OVERFLOW; j++)
-                        {
-                            if(!isalnum(receiver[anzempf][j]))
-                            {
-                                free(receiver);
-                                return -1;
-                            }
-                        }
-                        anzempf++;
-                        break;
-                    }
+				        //Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
+				        for(j = 0; j < len-OVERFLOW; j++)
+				        {
+				            if(!isalnum(receiver[anzempf][j]))
+				            {
+				                free(receiver);
+				                return -1;
+				            }
+				        }
+					send(socket, "OK\n", 3, 0);
+				        anzempf++;
+				        break;
+				    }
 
 
 				case 1: //Betreff
@@ -336,7 +337,7 @@ int sendmail(int socket, char *spool, char *username)
 							free(subject);
 							return -1;
 						}
-					}
+					}					
 
 					break;
 

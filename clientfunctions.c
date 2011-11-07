@@ -93,23 +93,6 @@ void sendcom(int mysocket, char buffer[BUF])
         printf ("Geben Sie einen oder mehrere Empfänger ein [max. 8 Zeichen]: ");
         fgets (buffer, BUF, stdin);
         allempf = strtok(buffer, ";");
-        if (strlen (allempf) >9)
-        {
-            fprintf (stderr,"1.te Empfängerlänge zu lang!\n");
-                        return;
-        }
-        else
-            {
-				     for(j = 0; j < strlen(allempf)-1; j++)
-                    {
-                        if(!isalnum(allempf[j]))
-                        {
-                                fprintf (stderr, "\nÜngultige Zeichen beim 1.ten Empfänger\n");
-                                return;
-
-                        }
-                    }
-            }
 
 
             if (allempf[strlen(allempf)-1] == '\n')
@@ -123,30 +106,25 @@ void sendcom(int mysocket, char buffer[BUF])
                 strcat(sendempf,"\n");
                 send(mysocket, sendempf, strlen(sendempf), 0);
             }
+
+		size = readline(mysocket, buffer, BUF-1);
+		if(size > 0)
+		{
+		    buffer[size] = '\0';
+		    if(strncmp(buffer, "ERR", 3) == 0)
+		    {
+					fputs(buffer,stdout);
+					return -1;
+		    }
+				
+		}
         while (allempf != NULL)
         {
 
             allempf = strtok(NULL, ";");
             if (allempf == NULL) break;
             i++;
-            if(strlen(allempf) > 9)
-            {
-                fprintf (stderr, "%d.te Empfängerlänge zu lang!\n",i+1);
-                return;
-            }
-            else
-            {
 
-                    for(j = 0; j < strlen(allempf)-1; j++)
-                    {
-                        if(!isalnum(allempf[j]))
-                        {
-                                fprintf (stderr, "\nÜngultige Zeichen beim %d.ten Empfänger\n",i+1);
-                                return;
-
-                        }
-                    }
-            }
             if (allempf[strlen(allempf)-1] == '\n')
             {
                  send(mysocket, allempf, strlen(allempf), 0);
@@ -158,6 +136,19 @@ void sendcom(int mysocket, char buffer[BUF])
                 strcat(sendempf,"\n");
                 send(mysocket, sendempf, strlen(sendempf), 0);
             }
+		
+  	   size = readline(mysocket, buffer, BUF-1);          
+    
+		if(size > 0)
+		{
+		    buffer[size] = '\0';
+		    if(strncmp(buffer, "ERR", 3) == 0)
+		    {
+					fputs(buffer,stdout);
+					return -1;
+		    }
+				
+		}
 
         }
     strcpy(buffer,"empf@aus\n");
@@ -258,19 +249,7 @@ void sendcom(int mysocket, char buffer[BUF])
     while (strncmp(buffer, ".", 1) != 0);                   //Nachricht ist so lange bis ein newline und ein Punkt kommt
 
 
-    do
-    {
-
-        size = readline(mysocket, buffer, BUF-1);           //Warten auf Antwort von Server
-
-        if(size > 0)
-        {
-            buffer[size] = '\0';
-            fputs(buffer,stdout);
-        }
-
-    }
-    while (size == 0);
+    receive(mysocket, buffer);
 
 }
 
