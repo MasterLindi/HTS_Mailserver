@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <termios.h>
+#include <fcntl.h>
 
 
 

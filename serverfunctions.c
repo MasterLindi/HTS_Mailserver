@@ -11,7 +11,7 @@
 #define SCOPE LDAP_SCOPE_SUBTREE
 
 #define BIND_USER "uid=if10b015,ou=People,dc=technikum-wien,dc=at"		/* anonymous bind with user and pw NULL */
-#define BIND_PW ""
+#define BIND_PW "1mauzer1"
 
 //Mutex
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -101,6 +101,7 @@ int loginuser(int socket ,char **username)
 		{
 			return -1;
 		}
+
 	}
 	
 	if(ldapauth(user, pw) == 0)
@@ -147,7 +148,7 @@ int ldapauth(char *user, char *password)
       return -1;
    }
 
-   printf("connected to LDAP server %s on port %d\n",LDAP_HOST,LDAP_PORT);
+   printf("LDAP: connected to LDAP server %s on port %d\n",LDAP_HOST,LDAP_PORT);
 
    /* anonymous bind */
    rc = ldap_simple_bind_s(ld,BIND_USER,BIND_PW);
@@ -159,7 +160,7 @@ int ldapauth(char *user, char *password)
    }
    else
    {
-      printf("bind successful\n");
+      printf("LDAP: bind successful\n");
    }
 
    /* perform ldap search */
@@ -171,12 +172,11 @@ int ldapauth(char *user, char *password)
       return -1;
    }
 
-   printf("Total results: %d\n", ldap_count_entries(ld, result));
    
    if(ldap_count_entries(ld, result) == 1)
    {	  
 	   e = ldap_first_entry(ld, result);
-	   printf("DN: %s\n", ldap_get_dn(ld,e));
+	   printf("LDAP: DN: %s\n", ldap_get_dn(ld,e));
 	   dn = strdup(ldap_get_dn(ld,e));
    }
    else
@@ -187,8 +187,7 @@ int ldapauth(char *user, char *password)
    /* free memory used for result */
    ldap_msgfree(result);
    free(attribs[0]);
-   free(attribs[1]);
-   printf("LDAP search suceeded\n");
+   free(attribs[1]);   
    
    ldap_unbind(ld);
    
@@ -222,7 +221,7 @@ int ldaplogin(char *dn, char *pw)
       return -1;
    }
 
-   printf("connected to LDAP server %s on port %d\n",LDAP_HOST,LDAP_PORT);
+   printf("LDAP: connected to LDAP server %s on port %d\n",LDAP_HOST,LDAP_PORT);
 
    /* anonymous bind */
    rc = ldap_simple_bind_s(ld,dn,pw);
@@ -234,14 +233,13 @@ int ldaplogin(char *dn, char *pw)
    }
    else
    {
-      printf("bind successful\n");
+      printf("LDAP: bind successful\n");
    }
    
    /* free memory used for result */
    ldap_msgfree(result);
    free(attribs[0]);
-   free(attribs[1]);
-   printf("LDAP search suceeded\n");
+   free(attribs[1]);   
    
    ldap_unbind(ld);
 	return 0;
@@ -257,6 +255,7 @@ int sendmail(int socket, char *spool, char *username)
 	int quit = 0;
 	int id = 0;
 	int anzempf = 0;
+	int attach = 1;
 	int status;
 
 	char bufid[33];
@@ -270,10 +269,15 @@ int sendmail(int socket, char *spool, char *username)
 	char *content = NULL;
 	char *attachment = NULL;
 
-    receiver = malloc(10*sizeof(char *));
+    receiver = malloc(100*sizeof(char *));
 
 	if(username == NULL)
+	{		
 		return -1;
+	}
+	else
+		send(socket, "OK\n", 3, 0);
+		
 
 	do
 	{
@@ -306,8 +310,7 @@ int sendmail(int socket, char *spool, char *username)
 				                return -1;
 				            }
 				        }
-				        anzempf++;
-						i--;				        
+				        anzempf++;										        
 				    }
 				break;
 
@@ -334,7 +337,13 @@ int sendmail(int socket, char *spool, char *username)
 					break;
 
                 case 2: //Attachment
-                    if((strncmp(buffer, "attachaus", strlen("attachaus"))) == 0) //Ende des Attachment
+                    if ((strncmp(buffer, "noattach", strlen("noattach")))==0)
+                    {
+                        attach = 0;
+                        i++;
+                        break;
+                    }
+                    if((strncmp(buffer, "attachaus", strlen("attachaus"))) == 0)  //Ende des Attachment
 					{
 						break;
 					}
@@ -370,8 +379,7 @@ int sendmail(int socket, char *spool, char *username)
 							}
 
 							strcat(attachment, buffer);
-						}
-						i--;
+						}						
 					}
 					break;
 
@@ -426,7 +434,12 @@ int sendmail(int socket, char *spool, char *username)
 		{
 			return -1;
 		}
-		i++;
+
+		if ((strncmp(buffer,"empfaus",strlen("empfaus")))==0 || i > 0)
+		{   if (i ==2 && (strncmp(buffer, "attachaus", strlen("attachaus"))==0)) i++;
+            if (i!= 2) i++;
+		}
+
 	}
 	while(quit == 0);
 
@@ -440,9 +453,10 @@ int sendmail(int socket, char *spool, char *username)
 	strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
 	strcpy(confpath, mailpath);
 	strcat(confpath, "/conf.ini");
+
 	strcpy(attachpath,mailpath);	
-	strcat(attachpath,"/attach/");
-	
+	strcat(attachpath,"/attach/");	
+
 
 		//Existiert das Verzeichnis bereits
 		if(access(mailpath, 00) == -1)
@@ -464,7 +478,7 @@ int sendmail(int socket, char *spool, char *username)
 		strcat(mailpath, "/");
 		strcat(mailpath, bufid);
 
-    	strcat (attachpath, bufid);
+    		strcat (attachpath, bufid);
 	
 		//Email abspeichern
 		if((fp = fopen(mailpath, "w")) == NULL)
@@ -488,10 +502,16 @@ int sendmail(int socket, char *spool, char *username)
 		id = strtol(bufid, NULL, 10);
 		id ++;
 
+		if (attach != 0)
+		{
+		    if((fp = fopen(attachpath, "w")) == NULL) return -1;
+		    fputs(attachment,fp);
+		    fclose(fp);
+		}
+
 		fp = fopen(confpath, "w");
 		fprintf(fp, "%d", id);
 		fclose(fp);
-
 
     }
     status = pthread_mutex_unlock(&mutex);
@@ -499,6 +519,7 @@ int sendmail(int socket, char *spool, char *username)
 	free(receiver);
 	free(subject);
 	free(content);
+	free(attachment);
 
 	return 0;
 }
@@ -576,16 +597,22 @@ int readmail(int socket, char *spool, char *username)
 	int i;
 	int j;
 	int len;
-	FILE *fp;
+	FILE *fp, *fpattach;
 	char buffer[BUF];
 	char mailpath[150];
-	char *msg = NULL;
-
+	char attachpath[150];
+	char *msg = NULL;	
+	
 	if(username == NULL)
+	{		
 		return -1;
+	}
+	else
+		send(socket, "OK\n", 3, 0);
 
 		size = readline(socket, buffer, BUF-1);
-
+		
+		
 		if(size > 0)
 		{
 			buffer[size] = '\0';
@@ -609,6 +636,8 @@ int readmail(int socket, char *spool, char *username)
 		{
 			return -1;
 		}
+		
+	
 
 	//Pfad erstellen
 	strcpy(mailpath, spool);
@@ -622,13 +651,47 @@ int readmail(int socket, char *spool, char *username)
 	}
 
 	strcat(mailpath, "/");
+	strcpy(attachpath, mailpath);
 	strncat(mailpath, msg, strlen(msg)-OVERFLOW);
+	strcat(attachpath, "attach/");
+	strncat(attachpath, msg, strlen(msg)-OVERFLOW);
 
 	//Mail-File öffnen, Prüfung ob Mail vorhanden
 	if((fp = fopen(mailpath, "r")) == NULL)
 	{
 		return -1;
 	}
+
+	//Prüfen ob Nachricht ein Attachment enthält
+	if ((fpattach = fopen(attachpath,"r"))==NULL)
+	{   strcpy (buffer,"false\n");
+	    send(socket, buffer, strlen(buffer),0);
+	}
+	else
+	{
+	    strcpy (buffer,"true\n");
+	    send(socket, buffer, strlen(buffer),0);
+
+	    //Antwort ob Benutzer Mail lesen will
+        size = readline(socket, buffer, BUF-1);
+        if (size > 0)
+        {
+            buffer[size] = '\0';
+            if ((strncmp (buffer,"showattach",strlen("showattach")))== 0)
+            {
+                while (fgets(buffer,BUF,fpattach))
+                {
+                    send(socket,buffer,strlen(buffer),0);
+                }
+                strcpy(buffer,"attachaus\n");
+                send(socket,buffer,strlen(buffer),0);
+            }
+        }
+        fclose(fpattach);
+
+	}
+
+
 
 	//Gewählte Mail an Client schicken
 	while(fgets(buffer, BUF, fp))
@@ -638,6 +701,7 @@ int readmail(int socket, char *spool, char *username)
 
 	//Mail-File schließen
 	fclose(fp);
+
 
 	//Speicher freigeben
 	free(msg);
@@ -654,13 +718,18 @@ int delmail(int socket, char *spool, char *username)
 	FILE *fp;
 	char buffer[BUF];
 	char mailpath[150];
+	char attachpath[150];
 	char *msg = NULL;
 
 	if(username == NULL)
+	{		
 		return -1;
+	}
+	else
+		send(socket, "OK\n", 3, 0);
 
-		size = readline(socket, buffer, BUF-1);
-
+		size = readline(socket, buffer, BUF-1);		
+		
 		if(size > 0)
 		{
 			buffer[size] = '\0';
@@ -698,12 +767,21 @@ int delmail(int socket, char *spool, char *username)
 	}
 
 	strcat(mailpath, "/");
-	strncat(mailpath, msg, strlen(msg)-OVERFLOW);
+        strcpy(attachpath,mailpath);
+	strncat(mailpath, msg, strlen(msg)-OVERFLOW);	
+	strcat(attachpath,"attach/");
+	strncat(attachpath, msg, strlen(msg)-OVERFLOW);	
 
 	//Mail löschen
 	if(remove(mailpath) != 0)
-		return -1;
-	
+		return -1;	
+
+    //Attachment löschen
+	if(access(attachpath, 00) == 0)
+	{
+		if(remove(attachpath) != 0)
+			return -1;
+	}
 	status = pthread_mutex_unlock(&mutex);
 
 	//Speicher freigeben

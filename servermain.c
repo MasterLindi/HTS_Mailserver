@@ -44,8 +44,6 @@ int findcom(char s[BUF])
 
 void * runclient(void *arg)
 {
-	
-
 	args *arg2 = arg; //Argumente casten
 
 	int new_socket = arg2->socket; //Socket
@@ -54,12 +52,10 @@ void * runclient(void *arg)
 	short attempt = 0; //Versuche
 	char buffer[BUF];
 	char *username = NULL; //Benutzername
-
+	
 	 int quit = 0;
 	 int size = 0;
 
-	 //username = (char *)malloc(8);
-	 //strcpy(username, "daniel\n");
 
 	     if (new_socket > 0)
 	     {
@@ -115,6 +111,7 @@ void * runclient(void *arg)
 		           		send(new_socket, buffer, strlen(buffer),0);
 		           		break;
 
+
 		           case 5: //LOGIN
 		           		if(loginuser(new_socket, &username) == 0)
 		           		{
@@ -159,8 +156,9 @@ void * runclient(void *arg)
 		           }
 		           //Nachricht an Server senden
 
-		           strcpy(buffer, "Login three times failed! You ip-address is locked!\n");
-		           send(new_socket, buffer, strlen(buffer),0);
+		           strcpy(buffer, "lock\n");
+		           send(new_socket, buffer, strlen(buffer),0);	
+			       printf("Client locked\n");		   
 		           quit = 1;
 	           }
 
@@ -249,20 +247,19 @@ int main (int argc, char *argv[])
 
 	     struct host *tmp = locked;
 
-		//Liste der gesperrten Client durchsuchen
+	     //Liste der gesperrten Client durchsuchen
 	     while(tmp != NULL)
 	     {
 		     if(strcmp(inet_ntoa(cliaddress.sin_addr), tmp->ip) == 0) //IP vergleichen, wenn gleich keine Verbindung möglich
 		     {
-				 lock = 1;
-				 diff = difftime(time(NULL),tmp->time);
-				 if(diff >= IPLOCK)
-					lock = 0;
-				 break;
-			 }
-
+			 lock = 1;
+			 diff = difftime(time(NULL),tmp->time);
+			 if(diff >= IPLOCK)
+				lock = 0;
+			 break;
+       		     }
 		     tmp = tmp->next;
-		 }
+	     }
 
 	     if(lock == 0) //Ip nicht gesperrt
 	     {
@@ -271,10 +268,11 @@ int main (int argc, char *argv[])
 	     	pthread_create (&client,NULL,runclient,&arg);
 	     }
 	     else
-	     {
-			 close(new_socket);
-			 diff = difftime(time(NULL), tmp->time);
-		     printf("Client locked! %lf sec left\n", IPLOCK - diff);
+	     {			
+			send(new_socket, "locked\n", 7, 0);
+		    close(new_socket);
+			diff = difftime(time(NULL), tmp->time);			
+			printf("Client %s locked! %.0lf sec left\n", inet_ntoa(cliaddress.sin_addr), IPLOCK - diff);
 	     }
 	}
 
