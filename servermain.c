@@ -44,12 +44,12 @@ int findcom(char s[BUF])
 	return -1;
 }
 
+//Signalhandler, Liste der geblockten Clients als File speichern
 void signalhandler(int sig)
 {
 	struct host *tmp = locked;
 	FILE *fp;
 	char path[150];
-	printf("zugriff");
 	strcpy(path, spool);
 	strcat(path, PATHLOCK);
 	
@@ -63,21 +63,23 @@ void signalhandler(int sig)
 	exit(0);
 }
 
+//Client-Handle
 void * runclient(void *arg)
 {
 
 	args *arg2 = arg; //Argumente casten
 
 	int new_socket = arg2->socket; //Socket
-	struct sockaddr_in client = arg2->address; //Socket-Adresse
+	struct sockaddr_in client = arg2->address; //IP und Port
 
-	short attempt = 0; //Versuche
+	short attempt = 0; //Login-Versuche
 	char buffer[BUF];
 	char *username = NULL; //Benutzername	
 	 int quit = 0;
 	 int size = 0;
 
 
+	     //Client mit Server verbunden, Willkommennachricht senden
 	     if (new_socket > 0)
 	     {
 	        printf ("Client connected from %s:%d...\n", inet_ntoa (client.sin_addr),ntohs(client.sin_port));
@@ -112,7 +114,7 @@ void * runclient(void *arg)
 		           		if(listmail(new_socket, spool, username) == 0)
 		           		    strcpy(buffer,"OK\n");
 		           		else
-			           		strcpy(buffer,"ERR\n");;
+			           		strcpy(buffer,"ERR\n");
 		           		send(new_socket, buffer, strlen(buffer),0);
 		           		break;
 
@@ -128,7 +130,7 @@ void * runclient(void *arg)
 		           		if(delmail(new_socket, spool, username) == 0)
 		           		    strcpy(buffer,"OK\n");
 		           		else
-			           		strcpy(buffer,"ERR\n");;
+			           		strcpy(buffer,"ERR\n");
 		           		send(new_socket, buffer, strlen(buffer),0);
 		           		break;
 
@@ -152,8 +154,8 @@ void * runclient(void *arg)
 		           		break;
 	           }
 
-				//Client in Liste speichern
-				if(attempt >= 3)
+		   //Client in Liste speichern
+		   if(attempt >= 3)
 	           {
 		           struct host *tmp;
 
@@ -175,14 +177,13 @@ void * runclient(void *arg)
 			           tmp->time = time(NULL);
 			           tmp->next = NULL;
 		           }
-		           //Nachricht an Server senden
 
+		           //Nachricht an Server senden
 		           strcpy(buffer, "lock\n");
 		           send(new_socket, buffer, strlen(buffer),0);	
-			       printf("Client locked\n");		   
+			   printf("Client locked\n");		   
 		           quit = 1;
 	           }
-
 
 	        }
 	        else if (size == 0)
@@ -205,12 +206,15 @@ void * runclient(void *arg)
 
 int main (int argc, char *argv[])
 {
+	//Thread für Clients
 	pthread_t client;	
 
 	//Sockets for the connections
 	int create_socket, new_socket;
   	socklen_t addrlen;
   	struct sockaddr_in address, cliaddress;
+	
+	//Variablen für Liste der geblockten Clients
 	char pathlocked[150];
 	FILE *fp = NULL;	
 
@@ -221,7 +225,10 @@ int main (int argc, char *argv[])
 	  	return -1;
   	}
 
+	//Port speichern
   	port = strtol(argv[1], NULL, 10);
+
+	//Mail-Spool-Dir speichern
   	spool = argv[2];
 
   	if(port == 0) //Fehler, falls falscher Port
@@ -230,15 +237,18 @@ int main (int argc, char *argv[])
 	  	return -1;
   	}
 
-  	if(access(spool, 00) == -1)	//Existiert das Verzeichnis nicht, dann Fehler
+	//Falls Mail-Spool-Dir nicht existiert -> Programmende
+  	if(access(spool, 00) == -1)
 	{
 		fprintf(stderr, "Mailspoolverzeichnis %s existiert nicht!\n", spool);
 		return -1;
 	}
 	
+	//Pfad geblockte Clients
 	strcpy(pathlocked, spool);
 	strcat(pathlocked, PATHLOCK);
 	
+	//geblockte Clients aus Datei auslesen
 	if((fp = fopen(pathlocked, "r")) != NULL)
 	{
 		time_t time;
@@ -298,16 +308,17 @@ int main (int argc, char *argv[])
   	listen (create_socket, 5);
 
   	addrlen = sizeof (struct sockaddr_in);
-
+	
+	//Signalhandler registrieren
 	signal(SIGINT,signalhandler);
 
 	while (1)
 	{
-
 	     printf("Waiting for connections...\n");
-		args arg;
-		short lock = 0;
-		double diff;
+
+	     args arg;
+	     short lock = 0;
+	     double diff;
 
 	     //Create new client socket
 	     new_socket = accept (create_socket, (struct sockaddr *) &cliaddress, &addrlen );
@@ -322,6 +333,8 @@ int main (int argc, char *argv[])
 		     {
 			 lock = 1;
 			 diff = difftime(time(NULL),tmp->time);
+
+			 //Wenn gesperrte Zeit abgelaufen, Client aus der Liste löschen
 			 if(diff >= IPLOCK)
 			 {
 				lock = 0;
@@ -342,13 +355,14 @@ int main (int argc, char *argv[])
 		     tmp = tmp->next;
 	     }
 
-	     if(lock == 0) //Ip nicht gesperrt
+	     //Falls Client nicht gesperrt, neuen Thread erstellen und Client Routine ausführen
+	     if(lock == 0) 
 	     {
 	     	arg.address = cliaddress;
 	     	arg.socket = new_socket;
 	     	pthread_create (&client,NULL,runclient,&arg);
 	     }
-	     else
+	     else //Client gesperrt --> Verbindung beenden zum Client
 	     {			
 		send(new_socket, "locked\n", 7, 0);
 		close(new_socket);

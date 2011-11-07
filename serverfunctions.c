@@ -270,9 +270,9 @@ int sendmail(int socket, char *spool, char *username)
 	char *subject = NULL;
 	char *content = NULL;
 	char *attachment = NULL;
-	 long totallength= 0,templength=0,count=0;
+	long totallength= 0,templength=0,count=0;
 
-    receiver = malloc(100*sizeof(char *)); //Empfänger array allokieren
+    	receiver = malloc(100*sizeof(char *)); //Empfänger array allokieren
 
 	if(username == NULL)        //Überprüfen ob Benutzer eingeloggt ist
 	{
@@ -280,7 +280,6 @@ int sendmail(int socket, char *spool, char *username)
 	}
 	else
 		send(socket, "OK\n", 3, 0);
-
 
 	do
 	{
@@ -312,7 +311,7 @@ int sendmail(int socket, char *spool, char *username)
 				                return -1;
 				            }
 				        }
-					send(socket, "OK\n", 3, 0);
+					send(socket, "OK\n", 3, 0); 
 				        anzempf++;
 				        break;
 				    }
@@ -350,6 +349,12 @@ int sendmail(int socket, char *spool, char *username)
                         i++;
                         break;
                     }
+		    if (strncmp(buffer, "errattach", strlen("errattach")) == 0)  //Überprüfen ob ein Attachment gesendet wird
+                    {
+                        return -1;
+                    }
+
+			
                     if (count == 0)     //1. Parameter des Attachment ist die Länge es Files
                     {
                          totallength = strtol(buffer,NULL,10);
@@ -377,7 +382,7 @@ int sendmail(int socket, char *spool, char *username)
 							}
 
 							strcpy(attachment, buffer);
-                            templength = templength + strlen(buffer);   //Mitzählen der einglesenen Bytes
+                            				templength = templength + strlen(buffer);   //Mitzählen der einglesenen Bytes
 						}
 						else
 						{
@@ -395,7 +400,7 @@ int sendmail(int socket, char *spool, char *username)
 
 							strcat(attachment, buffer);
 
-							templength=templength+strlen(buffer);
+							templength = templength + strlen(buffer);
 						}
 
 					}
@@ -454,28 +459,29 @@ int sendmail(int socket, char *spool, char *username)
 		}
 
 		if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))==0 || i > 0)    //Abfrage ob noch Empfänger kommen
-		{   if ( (i==2) && (templength == totallength)) i++;        //Abfrage ob noch Bytes vom Attachment kommen
-            if (i!= 2) i++;
+		{   
+			if ( (i==2) && (templength == totallength)) i++;        //Abfrage ob noch Bytes vom Attachment kommen
+		        if (i!= 2) i++;
 		}
 
 	}
 	while(quit == 0);
 
 	status = pthread_mutex_lock(&mutex);
-    for ( i = 0; i<anzempf; i++)
-    {
-        //Verzeichnispfad erstellen
+    	for ( i = 0; i<anzempf; i++)
+    	{
+        	//Verzeichnispfade erstellen
+		strcpy(mailpath, spool);
+		strcat(mailpath, "/");
+		strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
 
-	strcpy(mailpath, spool);
-	strcat(mailpath, "/");
-	strncat(mailpath, receiver[i], strlen(receiver[i])-OVERFLOW);
-	strcpy(confpath, mailpath);
-	strcat(confpath, "/conf.ini");
+		//Configfilepfad
+		strcpy(confpath, mailpath);
+		strcat(confpath, "/conf.ini");
 
-	strcpy(attachpath,mailpath);
-	strcat(attachpath,"/attach/");  //Attachment wird in Unterordner abgelegt
-
-
+		//Attachmentpfad
+		strcpy(attachpath,mailpath);
+		strcat(attachpath,"/attach/");  //Attachment wird in Unterordner abgelegt
 
 		//Existiert das Verzeichnis bereits
 		if(access(mailpath, 00) == -1)
@@ -487,7 +493,6 @@ int sendmail(int socket, char *spool, char *username)
 			fclose(fp);
 		}
 
-
 		//ID aus dem Config-File lesen
 		fp = fopen(confpath, "r");
 		fscanf(fp, "%s", bufid);
@@ -496,13 +501,14 @@ int sendmail(int socket, char *spool, char *username)
 		//Pfad fertig bauen
 		strcat(mailpath, "/");
 		strcat(mailpath, bufid);
-
-
     		strcat (attachpath, bufid);
 
 		//Email abspeichern
 		if((fp = fopen(mailpath, "w")) == NULL)
+		{
+			status = pthread_mutex_unlock(&mutex);
 			return -1;
+		}
 
 		fputs(username, fp);
 		fputs(receiver[i], fp);
@@ -511,9 +517,14 @@ int sendmail(int socket, char *spool, char *username)
 
 		fclose(fp);
 
+		//Attachment abspeichern
 		if (attach != 0)
 		{
-		    if((fp = fopen(attachpath, "w")) == NULL) return -1;
+		    if((fp = fopen(attachpath, "w")) == NULL) 
+			{
+				status = pthread_mutex_unlock(&mutex);
+				return -1;
+			}
 		    fputs(attachment,fp);
 		    fclose(fp);
 		}
@@ -526,8 +537,9 @@ int sendmail(int socket, char *spool, char *username)
 		fprintf(fp, "%d", id);
 		fclose(fp);
 
-    }
-    status = pthread_mutex_unlock(&mutex);
+    	}
+    	status = pthread_mutex_unlock(&mutex);
+
 	//Speicher freigeben
 	free(receiver);
 	free(subject);
@@ -545,15 +557,13 @@ int listmail(int socket, char *spool, char *username)
 	char subject[81];
 	char mailpath[150];
 	char msgpath[150];
-
-
 	FILE *fp = NULL;
 	DIR *ver;
 	struct dirent *p;
 
+	//Prüfung, ob User eingeloggt
 	if(username == NULL)
 		return -1;
-
 
 	//Pfad zum Benutzer erstellen
 	strcpy(mailpath, spool);
@@ -562,48 +572,48 @@ int listmail(int socket, char *spool, char *username)
 
 	//Benutzer nicht vorhanden
 	if(access(mailpath, 00) == -1)
-		{
-			return -1;
-		}
+	{
+		return -1;
+	}
 
-		if((ver = opendir(mailpath)) != NULL) //Verzeichnis öffnen
+	if((ver = opendir(mailpath)) != NULL) //Verzeichnis öffnen
+	{
+		while((p = readdir(ver)) != NULL) //Ausgabe jeder Datei aus dem Verzeichnis
 		{
-			while((p = readdir(ver)) != NULL) //Ausgabe jeder Datei aus dem Verzeichnis
+			if( strcmp((*p).d_name, "..") != 0 &&
+				strcmp((*p).d_name, ".") != 0 &&
+				strcmp((*p).d_name, "conf.ini") != 0 &&
+				strcmp((*p).d_name, "attach") != 0
+
+			)
 			{
-				if( strcmp((*p).d_name, "..") != 0 &&
-					strcmp((*p).d_name, ".") != 0 &&
-					strcmp((*p).d_name, "conf.ini") != 0 &&
-					strcmp((*p).d_name, "attach") != 0
-
-				)
-				{
-					//Betreff jeder Nachricht auslesen
-					strcpy(msgpath, mailpath);
-					strcat(msgpath, "/");
-					strcat(msgpath, (*p).d_name);
+				//Betreff jeder Nachricht auslesen
+				strcpy(msgpath, mailpath);
+				strcat(msgpath, "/");
+				strcat(msgpath, (*p).d_name);
 
 
-				        if((fp = fopen(msgpath, "r")) == NULL)
-								return -1;
+				if((fp = fopen(msgpath, "r")) == NULL)
+					return -1;
 
-				        for(i = 0; i < 2; i++)
-								fgets(subject, 81, fp);
+				for(i = 0; i < 2; i++)
+					fgets(subject, 81, fp);
 
-				        fgets(subject, 81, fp);
+				fgets(subject, 81, fp);
 
-				        fclose(fp);
+				fclose(fp);
 
-				        strcpy(buffer,(*p).d_name);
-				        strcat(buffer, "  ");
-				        strcat(buffer, subject);
+				strcpy(buffer,(*p).d_name);
+				strcat(buffer, "  ");
+				strcat(buffer, subject);
 
-				        send(socket, buffer, strlen(buffer),0);
+				send(socket, buffer, strlen(buffer),0);
 
-				}
 			}
 		}
+	}
 
-		closedir(ver);
+	closedir(ver);
 
 	return 0;
 }
@@ -628,34 +638,31 @@ int readmail(int socket, char *spool, char *username)
 	else
 		send(socket, "OK\n", 3, 0);
 
-		size = readline(socket, buffer, BUF-1);
+	size = readline(socket, buffer, BUF-1);
 
+	if(size > 0)
+	{
+		buffer[size] = '\0';
 
-		if(size > 0)
+		msg = (char *)malloc(strlen(buffer)+1);
+		strcpy(msg, buffer);
+
+		len = strlen(msg);
+
+		//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
+		for(j = 0; j < len-OVERFLOW; j++)
 		{
-			buffer[size] = '\0';
-
-			msg = (char *)malloc(strlen(buffer)+1);
-			strcpy(msg, buffer);
-
-			len = strlen(msg);
-
-			//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-			for(j = 0; j < len-OVERFLOW; j++)
+			if(!isdigit(msg[j]))
 			{
-				if(!isdigit(msg[j]))
-				{
-					free(msg);
-					return -1;
-				}
+				free(msg);
+				return -1;
 			}
 		}
-		else
-		{
-			return -1;
-		}
-
-
+	}
+	else
+	{
+		return -1;
+	}
 
 	//Pfad erstellen
 	strcpy(mailpath, spool);
@@ -674,7 +681,6 @@ int readmail(int socket, char *spool, char *username)
 	strcat(attachpath, "attach/");
 	strncat(attachpath, msg, strlen(msg)-OVERFLOW);
 
-
 	//Mail-File öffnen, Prüfung ob Mail vorhanden
 	if((fp = fopen(mailpath, "r")) == NULL)
 	{
@@ -683,58 +689,56 @@ int readmail(int socket, char *spool, char *username)
 
 	//Prüfen ob Nachricht ein Attachment enthält
 	if ((fpattach = fopen(attachpath,"r"))==NULL)
-	{   strcpy (buffer,"false\n");
-	    send(socket, buffer, strlen(buffer),0);
+	{   
+		strcpy (buffer,"false\n");
+		send(socket, buffer, strlen(buffer),0);
 	}
 	else
 	{
-	    strcpy (buffer,"true\n");
-	    send(socket, buffer, strlen(buffer),0);
+	    	strcpy (buffer,"true\n");
+	    	send(socket, buffer, strlen(buffer),0);
 
-	    //Antwort ob Benutzer Mail lesen will
-        size = readline(socket, buffer, BUF-1);
-        if (size > 0)
-        {
+		//Antwort ob Benutzer Mail lesen will
+		size = readline(socket, buffer, BUF-1);
 
-            buffer[size] = '\0';
-            if ((strncmp (buffer,"showattach",strlen("showattach")))== 0)
-            {    long sizeoffile=0;
-                struct stat attribut;
-                 if (stat(attachpath, &attribut) == -1)    //Attachmentgröße wird bestimmt
-                {
-                    fprintf(stderr,"Dateifehler\n");
-                }
-                else
-                {
-                sizeoffile= attribut.st_size;
+		if (size > 0)
+		{
 
-                }
+		    	buffer[size] = '\0';
+			if ((strncmp (buffer,"showattach",strlen("showattach")))== 0)
+		    	{
+				long sizeoffile=0;
+		        	struct stat attribut;
+		        	if (stat(attachpath, &attribut) == -1)    //Attachmentgröße wird bestimmt
+				{
+					fprintf(stderr,"Dateifehler\n");
+				}
+				else
+				{
+					sizeoffile= attribut.st_size;
+				}
 
-                sprintf( buffer, "%ld", sizeoffile );
-                strcat(buffer,"\n");
-                send(socket, buffer, strlen(buffer), 0);
+				sprintf( buffer, "%ld", sizeoffile );
+				strcat(buffer,"\n");
+				send(socket, buffer, strlen(buffer), 0);
 
-                while (fgets(buffer,BUF,fpattach))
-                {
-                    send(socket,buffer,strlen(buffer),0);
-                }
-                /*strcpy(buffer,"attachaus\n");
-                send(socket,buffer,strlen(buffer),0);*/
-            }
-        }
-        fclose(fpattach);
-
+				while (fgets(buffer,BUF,fpattach))
+				{
+				    send(socket,buffer,strlen(buffer),0);
+				}                
+		    	}
+		}
+		fclose(fpattach);
 	}
 
 	//Gewählte Mail an Client schicken
 	while(fgets(buffer, BUF, fp))
 	{
-	    send(socket, buffer, strlen(buffer),0);
+		send(socket, buffer, strlen(buffer),0);
 	}
 
 	//Mail-File schließen
 	fclose(fp);
-
 
 	//Speicher freigeben
 	free(msg);
@@ -754,6 +758,7 @@ int delmail(int socket, char *spool, char *username)
 	char attachpath[150];
 	char *msg = NULL;
 
+	//Prüfung, ob User eingeloggt
 	if(username == NULL)
 	{
 		return -1;
@@ -761,31 +766,31 @@ int delmail(int socket, char *spool, char *username)
 	else
 		send(socket, "OK\n", 3, 0);
 
-		size = readline(socket, buffer, BUF-1);
+	size = readline(socket, buffer, BUF-1);
 
-		if(size > 0)
+	if(size > 0)
+	{
+		buffer[size] = '\0';
+
+		msg = (char *)malloc(strlen(buffer)+1);
+		strcpy(msg, buffer);
+
+		len = strlen(msg);
+
+		//Prüfung ob alle Zeichen numerisch sind, wenn nicht, Fehler
+		for(j = 0; j < len-OVERFLOW; j++)
 		{
-			buffer[size] = '\0';
-
-			msg = (char *)malloc(strlen(buffer)+1);
-			strcpy(msg, buffer);
-
-			len = strlen(msg);
-
-			//Prüfung ob alle Zeichen numerisch sind, wenn nicht, Fehler
-			for(j = 0; j < len-OVERFLOW; j++)
+			if(!isdigit(msg[j]))
 			{
-				if(!isdigit(msg[j]))
-				{
-					free(msg);
-					return -1;
-				}
+				free(msg);
+				return -1;
 			}
 		}
-		else
-		{
-			return -1;
-		}
+	}
+	else
+	{
+		return -1;
+	}
 
 	status = pthread_mutex_lock(&mutex);
 	//Pfad erstellen
@@ -796,6 +801,7 @@ int delmail(int socket, char *spool, char *username)
 	//Benutzer nicht vorhanden
 	if(access(mailpath, 00) == -1)
 	{
+		status = pthread_mutex_unlock(&mutex);
 		return -1;
 	}
 
@@ -807,13 +813,19 @@ int delmail(int socket, char *spool, char *username)
 
 	//Mail löschen
 	if(remove(mailpath) != 0)
+	{
+		status = pthread_mutex_unlock(&mutex);
 		return -1;
+	}
 
         //Attachment löschen
 	if(access(attachpath, 00) == 0)
 	{
 		if(remove(attachpath) != 0)
+		{
+			status = pthread_mutex_unlock(&mutex);
 			return -1;
+		}
 	}
 	status = pthread_mutex_unlock(&mutex);
 

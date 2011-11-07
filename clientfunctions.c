@@ -200,11 +200,21 @@ void sendcom(int mysocket, char buffer[BUF])
             filename [strlen(filename)-1] = '\0';
             if (stat(filename, &attribut) == -1)    //Attachmentgröße wird bestimmt
             {
-                fprintf(stderr,"Dateifehler\n");
+                fprintf(stderr,"Dateifehler\n");		
+		send(mysocket, "errattach\n", 10, 0);		
+		receive(mysocket, buffer);
+		return -1;
             }
             else
             {
                 sizeoffile= attribut.st_size;
+		if(sizeoffile == 0)
+		{
+			fprintf(stderr,"Datei ist leer!\n");
+			send(mysocket, "errattach\n", 10, 0);		
+			receive(mysocket, buffer);
+			return -1;
+		}
 
             }
 
@@ -220,16 +230,14 @@ void sendcom(int mysocket, char buffer[BUF])
 
             if(NULL == datei)
             {
-                fprintf(stderr,"Konnte Datei %s nicht öffnen!\n", filename);
-                return;
+                printf("Konnte Datei %s nicht öffnen!\n", filename);		
+                return -1;
             }
-
-
-           while(fgets(buffer, BUF, datei))
-            {
-                send(mysocket, buffer, strlen (buffer), 0); //Attachment wird an den Server gesendet
-            }
-
+	   
+	    while(fgets(buffer, BUF, datei))
+	    {
+	        send(mysocket, buffer, strlen (buffer), 0); //Attachment wird an den Server gesendet
+	    }		
         }
         else if (attach == 'n') //Es wird kein Attachment geschickt
         {   eingabe = 1;
@@ -385,33 +393,23 @@ void delcom(int mysocket, char buffer[BUF])
         if(size > 0)
         {
             buffer[size] = '\0';
+		
             if(strncmp(buffer, "ERR", 3) == 0)  //Überprüfen ob es die Nachricht gibt
             {
 			fputs(buffer,stdout);
 			return ;
 		}
+	  
 
         }
-
-     do
-    {
-        eingabe = 1;    //Auswahl der zu löschenden Nachricht
+     
         printf ("Geben Sie eine Nachrichtennummer ein: ");
-        fgets (buffer, BUF, stdin);
-        int j;
-        for(j = 0; j < strlen(buffer)-1; j++)
-            {
-                if(!isalnum(buffer[j]))
-                {
-                        printf ("Üngultige Zeichen!\n");
-                        eingabe = 0;
-                }
-            }
-
-    }while (eingabe !=1);
-     send(mysocket, buffer, strlen (buffer), 0);
-
-    receive(mysocket, buffer);
+        fgets (buffer, BUF, stdin);        
+     	
+	send(mysocket, buffer, strlen (buffer), 0);
+	
+	receive(mysocket, buffer);
+	
 }
 
 void logincom(int mysocket, char buffer[BUF])
