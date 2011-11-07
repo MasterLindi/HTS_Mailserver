@@ -118,7 +118,7 @@ void sendcom(int mysocket, char buffer[BUF])
             }
 
         }
-    strcpy(buffer,"empfaus\n");
+    strcpy(buffer,"empf@aus\n");
     send(mysocket, buffer, strlen (buffer), 0);
     do
     {
@@ -153,6 +153,8 @@ void sendcom(int mysocket, char buffer[BUF])
 
     char attach,filename[255];
     eingabe = 0;
+    long sizeoffile=0;
+    struct stat attribut;
     do
     {    printf ("Wollen Sie eine Attachment mitsenden: (y,n) ");
          attach = getchar();
@@ -162,6 +164,22 @@ void sendcom(int mysocket, char buffer[BUF])
             printf("Geben sie den Pfad + Dateinamen an: ");
             fgets(filename,255,stdin);
             filename [strlen(filename)-1] = '\0';
+            if (stat(filename, &attribut) == -1)
+            {
+                fprintf(stderr,"Dateifehler\n");
+            }
+            else
+            {
+                sizeoffile= attribut.st_size;
+
+            }
+
+            sprintf( buffer, "%ld", sizeoffile );
+
+            strcat(buffer,"\n");
+
+            send(mysocket, buffer, strlen(buffer), 0);
+
             FILE *datei;
 
             datei = fopen(filename, "r");
@@ -175,11 +193,9 @@ void sendcom(int mysocket, char buffer[BUF])
 
            while(fgets(buffer, BUF, datei))
             {
-
                 send(mysocket, buffer, strlen (buffer), 0);
             }
-        strcpy(buffer,"attachaus\n");
-        send(mysocket, buffer, strlen (buffer), 0);
+
         }
         else if (attach == 'n')
         {   eingabe = 1;

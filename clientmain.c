@@ -35,21 +35,21 @@ int findcom(char s[BUF])            //Command-finder
 
 
 
-int main (int argc, char **argv) {
+int main (int argc, char *argv[]) {
   int create_socket;
   char buffer[BUF];
   struct sockaddr_in address;
   int size;
 
-  if( argc < 2 ){
-     printf("Usage: %s ServerAdresse\n", argv[0]);      //Überprüfung der Eingabeparameter
-     exit(EXIT_FAILURE);
+  if( argc < 3 ){
+     fprintf(stderr, "Usage: %s [IP] [Port]\n", argv[0]);      //Überprüfung der Eingabeparameter
+     return -1;
   }
 
   if ((create_socket = socket (AF_INET, SOCK_STREAM, 0)) == -1)  //Socket wird erstellt
   {
      perror("Socket error");
-     return EXIT_FAILURE;
+     return -1;
   }
     port = strtol(argv[2], NULL, 10);
 

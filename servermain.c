@@ -56,8 +56,8 @@ void * runclient(void *arg)
 	short attempt = 0; //Versuche
 	char buffer[BUF];
 	char *username = NULL; //Benutzername
-	username = (char *)malloc(strlen("daniel")+1);
-	strcpy(username,"daniel\n");
+	username = (char *)malloc(strlen("chrisi")+1);
+	strcpy(username,"chrisi\n");
 	 int quit = 0;
 	 int size = 0;
 
