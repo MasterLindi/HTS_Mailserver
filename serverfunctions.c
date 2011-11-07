@@ -63,7 +63,7 @@ int loginuser(int socket ,char **username)
 
 	for(i = 0; i < 2; i++)
 	{
-		size = readline(socket, buffer, BUF-1);
+		size = readline(socket, buffer, BUF-1);   //Lesen von Client
 
 		if(size > 0)
 		{
@@ -83,7 +83,7 @@ int loginuser(int socket ,char **username)
 					//Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
 					for(j = 0; j < len-OVERFLOW; j++)
 					{
-						if(!isalnum(user[j]))
+						if(!isalnum(user[j]))   //Prüfe ob nur erlaubte Zeichen vorkommen
 						{
 							free(user);
 							return -1;
@@ -94,7 +94,7 @@ int loginuser(int socket ,char **username)
 				case 1: //Passwort auslesen
 					pw = (char *)malloc(strlen(buffer)+1);
 					strcpy(pw, buffer);
-					pw[strlen(pw)-1] = '\0';
+					pw[strlen(pw)-1] = '\0';        //\n wird aus Passwort entfernt
 					break;
 			}
 		}
@@ -105,8 +105,8 @@ int loginuser(int socket ,char **username)
 
 
 	}
-	
-	if(ldapauth(user, pw) == 0)
+
+	if(ldapauth(user, pw) == 0)     //Überprüfen ob Ldap-Authentifikation erfolgreich ist
 	{
 		*username = (char *)malloc(strlen(user)+1);
 		strcpy(*username, user);
@@ -114,7 +114,7 @@ int loginuser(int socket ,char **username)
 	else
 		return -1;
 
-	free(user);
+	free(user); //Speicher freigeben
 	free(pw);
 
 	return 0;
@@ -137,12 +137,12 @@ int ldapauth(char *user, char *password)
    attribs[0]=strdup("uid");		/* return uid and cn of entries */
    attribs[1]=strdup("cn");
    attribs[2]=NULL;		/* array must be NULL terminated */
-   
-   
-   strcpy(filter, "(uid=");   
+
+
+   strcpy(filter, "(uid=");
    strncat(filter, user, strlen(user)-OVERFLOW);
    strcat(filter, ")");
-   
+
    /* setup LDAP connection */
    if ((ld=ldap_init(LDAP_HOST, LDAP_PORT)) == NULL)
    {
@@ -174,9 +174,9 @@ int ldapauth(char *user, char *password)
       return -1;
    }
 
-   
+
    if(ldap_count_entries(ld, result) == 1)
-   {	  
+   {
 	   e = ldap_first_entry(ld, result);
 	   printf("LDAP: DN: %s\n", ldap_get_dn(ld,e));
 	   dn = strdup(ldap_get_dn(ld,e));
@@ -185,19 +185,19 @@ int ldapauth(char *user, char *password)
    {
 	   return -1;
    }
-   
+
    /* free memory used for result */
    ldap_msgfree(result);
    free(attribs[0]);
-   free(attribs[1]);   
-   
+   free(attribs[1]);
+
    ldap_unbind(ld);
-   
+
    if(ldaplogin(dn, password) == -1)
-   {	  
+   {
 	   return -1;
    }
-   
+
    return 0;
 }
 
@@ -215,7 +215,7 @@ int ldaplogin(char *dn, char *pw)
    attribs[0]=strdup("uid");		/* return uid and cn of entries */
    attribs[1]=strdup("cn");
    attribs[2]=NULL;		/* array must be NULL terminated */
-   
+
    /* setup LDAP connection */
    if ((ld=ldap_init(LDAP_HOST, LDAP_PORT)) == NULL)
    {
@@ -237,12 +237,12 @@ int ldaplogin(char *dn, char *pw)
    {
       printf("LDAP: bind successful\n");
    }
-   
+
    /* free memory used for result */
    ldap_msgfree(result);
    free(attribs[0]);
-   free(attribs[1]);   
-   
+   free(attribs[1]);
+
    ldap_unbind(ld);
 	return 0;
 }
@@ -272,19 +272,19 @@ int sendmail(int socket, char *spool, char *username)
 	char *attachment = NULL;
 	 long totallength= 0,templength=0,count=0;
 
-    receiver = malloc(100*sizeof(char *));
+    receiver = malloc(100*sizeof(char *)); //Empfänger array allokieren
 
-	if(username == NULL)
-	{		
+	if(username == NULL)        //Überprüfen ob Benutzer eingeloggt ist
+	{
 		return -1;
 	}
 	else
 		send(socket, "OK\n", 3, 0);
-		
+
 
 	do
 	{
-		size = readline(socket, buffer, BUF-1);
+		size = readline(socket, buffer, BUF-1);     //Einlesen von Client
 
 		if(size > 0)
 		{
@@ -294,7 +294,7 @@ int sendmail(int socket, char *spool, char *username)
 			{
 				case 0: //Empfänger
 
-                    if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))== 0) break;
+                    if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))== 0) break; //Üerprüfen ob noch Empfänger kommen
                     else
                     {
                         receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
@@ -342,14 +342,14 @@ int sendmail(int socket, char *spool, char *username)
 
                 case 2: //Attachment
 
-                    if ((strncmp(buffer, "noattach", strlen("noattach")))==0 && count ==0)
+                    if ((strncmp(buffer, "noattach", strlen("noattach")))==0 && count ==0)  //Überprüfen ob ein Attachment gesendet wird
                     {
                         attach = 0;
                         count = 1;
                         i++;
                         break;
                     }
-                    if (count == 0)
+                    if (count == 0)     //1. Parameter des Attachment ist die Länge es Files
                     {
                          totallength = strtol(buffer,NULL,10);
                          count = 1;
@@ -362,7 +362,7 @@ int sendmail(int socket, char *spool, char *username)
 					}
 					else //Einlesen des Inhaltes
 					{
-						if(attachment == NULL)
+						if(attachment == NULL) //Wenn noch nichts gesendet wurde
 						{
 							attachment = (char *)malloc(strlen(buffer)+1);
 
@@ -376,11 +376,11 @@ int sendmail(int socket, char *spool, char *username)
 							}
 
 							strcpy(attachment, buffer);
-                            templength = templength + strlen(buffer);
+                            templength = templength + strlen(buffer);   //Mitzählen der einglesenen Bytes
 						}
 						else
 						{
-							len = strlen(attachment);
+							len = strlen(attachment);   //Nachstehende zeilen werden eingelesen
 							attachment = (char *)realloc(attachment, strlen(buffer)+len+1);
 
 							if(attachment == NULL)
@@ -440,7 +440,7 @@ int sendmail(int socket, char *spool, char *username)
 								return -1;
 							}
 
-							strcat(content, buffer);
+							strcat(content, buffer); //Anhängen des Inhalts an die Nachricht
 						}
 					}
 					break;
@@ -452,10 +452,9 @@ int sendmail(int socket, char *spool, char *username)
 			return -1;
 		}
 
-		if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))==0 || i > 0)
-		{   if ( (i==2) && (templength == totallength)) i++;
-
-            		if (i!= 2) i++;
+		if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))==0 || i > 0)    //Abfrage ob noch Empfänger kommen
+		{   if ( (i==2) && (templength == totallength)) i++;        //Abfrage ob noch Bytes vom Attachment kommen
+            if (i!= 2) i++;
 		}
 
 	}
@@ -472,8 +471,8 @@ int sendmail(int socket, char *spool, char *username)
 	strcpy(confpath, mailpath);
 	strcat(confpath, "/conf.ini");
 
-	strcpy(attachpath,mailpath);	
-	strcat(attachpath,"/attach/");	
+	strcpy(attachpath,mailpath);
+	strcat(attachpath,"/attach/");  //Attachment wird in Unterordner abgelegt
 
 
 
@@ -499,7 +498,7 @@ int sendmail(int socket, char *spool, char *username)
 
 
     		strcat (attachpath, bufid);
-	
+
 		//Email abspeichern
 		if((fp = fopen(mailpath, "w")) == NULL)
 			return -1;
@@ -516,8 +515,8 @@ int sendmail(int socket, char *spool, char *username)
 		    if((fp = fopen(attachpath, "w")) == NULL) return -1;
 		    fputs(attachment,fp);
 		    fclose(fp);
-		}		
-		
+		}
+
 		//ID im Config-File erhöhen und in Datei schrieben
 		id = strtol(bufid, NULL, 10);
 		id ++;
@@ -582,7 +581,7 @@ int listmail(int socket, char *spool, char *username)
 					strcat(msgpath, "/");
 					strcat(msgpath, (*p).d_name);
 
-                    
+
 				        if((fp = fopen(msgpath, "r")) == NULL)
 								return -1;
 
@@ -597,7 +596,7 @@ int listmail(int socket, char *spool, char *username)
 				        strcat(buffer, "  ");
 				        strcat(buffer, subject);
 
-				        send(socket, buffer, strlen(buffer),0);                   
+				        send(socket, buffer, strlen(buffer),0);
 
 				}
 			}
@@ -619,18 +618,18 @@ int readmail(int socket, char *spool, char *username)
 	char buffer[BUF];
 	char mailpath[150];
 	char attachpath[150];
-	char *msg = NULL;	
+	char *msg = NULL;
 
-	if(username == NULL)
-	{		
+	if(username == NULL)    //Überprüfung ob wer eingeloggt ist
+	{
 		return -1;
 	}
 	else
 		send(socket, "OK\n", 3, 0);
 
 		size = readline(socket, buffer, BUF-1);
-		
-		
+
+
 		if(size > 0)
 		{
 			buffer[size] = '\0';
@@ -654,8 +653,8 @@ int readmail(int socket, char *spool, char *username)
 		{
 			return -1;
 		}
-		
-	
+
+
 
 	//Pfad erstellen
 	strcpy(mailpath, spool);
@@ -695,15 +694,31 @@ int readmail(int socket, char *spool, char *username)
         size = readline(socket, buffer, BUF-1);
         if (size > 0)
         {
+
             buffer[size] = '\0';
             if ((strncmp (buffer,"showattach",strlen("showattach")))== 0)
-            {
+            {    long sizeoffile=0;
+                struct stat attribut;
+                 if (stat(attachpath, &attribut) == -1)    //Attachmentgröße wird bestimmt
+                {
+                    fprintf(stderr,"Dateifehler\n");
+                }
+                else
+                {
+                sizeoffile= attribut.st_size;
+
+                }
+
+                sprintf( buffer, "%ld", sizeoffile );
+                strcat(buffer,"\n");
+                send(socket, buffer, strlen(buffer), 0);
+
                 while (fgets(buffer,BUF,fpattach))
                 {
                     send(socket,buffer,strlen(buffer),0);
                 }
-                strcpy(buffer,"attachaus\n");
-                send(socket,buffer,strlen(buffer),0);
+                /*strcpy(buffer,"attachaus\n");
+                send(socket,buffer,strlen(buffer),0);*/
             }
         }
         fclose(fpattach);
@@ -741,14 +756,14 @@ int delmail(int socket, char *spool, char *username)
 	char *msg = NULL;
 
 	if(username == NULL)
-	{		
+	{
 		return -1;
 	}
 	else
 		send(socket, "OK\n", 3, 0);
 
-		size = readline(socket, buffer, BUF-1);		
-		
+		size = readline(socket, buffer, BUF-1);
+
 		if(size > 0)
 		{
 			buffer[size] = '\0';
@@ -787,13 +802,13 @@ int delmail(int socket, char *spool, char *username)
 
 	strcat(mailpath, "/");
         strcpy(attachpath,mailpath);
-	strncat(mailpath, msg, strlen(msg)-OVERFLOW);	
-	strcat(attachpath,"attach/");
-	strncat(attachpath, msg, strlen(msg)-OVERFLOW);	
+	strncat(mailpath, msg, strlen(msg)-OVERFLOW);
+	strcat(attachpath,"attach/");       //dazugehöriges Attachment wird ebenfalls gelöscht
+	strncat(attachpath, msg, strlen(msg)-OVERFLOW);
 
 	//Mail löschen
 	if(remove(mailpath) != 0)
-		return -1;	
+		return -1;
 
         //Attachment löschen
 	if(access(attachpath, 00) == 0)
@@ -801,7 +816,7 @@ int delmail(int socket, char *spool, char *username)
 		if(remove(attachpath) != 0)
 			return -1;
 	}
-	status = pthread_mutex_unlock(&mutex);    
+	status = pthread_mutex_unlock(&mutex);
 
 	//Speicher freigeben
 	free(msg);
