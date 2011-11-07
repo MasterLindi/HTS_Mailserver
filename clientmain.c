@@ -29,7 +29,7 @@ int findcom(char s[BUF])            //Command-finder
 			return 4;
 
     if(strncmp(s, options[5], 5) == 0)
-			return 5;   
+			return 5;
 
 	return -1;
 }
@@ -40,7 +40,7 @@ int main (int argc, char *argv[]) {
   int create_socket;
   char buffer[BUF];
   struct sockaddr_in address;
-  int size;  
+  int size;
   short quit = 0;
 
   if( argc < 3 ){
@@ -53,7 +53,7 @@ int main (int argc, char *argv[]) {
      perror("Socket error");
      return -1;
   }
-  
+
     port = strtol(argv[2], NULL, 10);
 
   memset(&address,0,sizeof(address));
@@ -80,10 +80,10 @@ int main (int argc, char *argv[]) {
      perror("Connect error - no server available");     //Verbindungsfehler
      return EXIT_FAILURE;
   }
-  
-  
 
-  do {	 
+
+
+  do {
      printf ("Enter command: ");        //eingegebener Command wird eingelesen
      fgets (buffer, BUF, stdin);
 
@@ -111,7 +111,7 @@ int main (int argc, char *argv[]) {
 
                    	   case 5:
                        	logincom(create_socket,buffer);
-                        break;			 
+                        break;
 
 		           default:
 		           		printf("Undefinded command\n");
