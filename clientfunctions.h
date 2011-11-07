@@ -11,10 +11,6 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <termios.h>
-#include <fcntl.h>
-
-
-
 
 #ifndef clientfunctions_h
 #define clientfunctions_h

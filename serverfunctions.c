@@ -60,6 +60,7 @@ int loginuser(int socket ,char **username)
 	if(*username != NULL) //Benutzer bereits eingeloggt
 		return -1;
 
+
 	for(i = 0; i < 2; i++)
 	{
 		size = readline(socket, buffer, BUF-1);
@@ -101,6 +102,7 @@ int loginuser(int socket ,char **username)
 		{
 			return -1;
 		}
+
 
 	}
 	
@@ -268,6 +270,7 @@ int sendmail(int socket, char *spool, char *username)
 	char *subject = NULL;
 	char *content = NULL;
 	char *attachment = NULL;
+	 long totallength= 0,templength=0,count=0;
 
     receiver = malloc(100*sizeof(char *));
 
@@ -290,29 +293,30 @@ int sendmail(int socket, char *spool, char *username)
 			switch(i)
 			{
 				case 0: //Empfänger
-				    if ((strncmp(buffer,"empfaus",strlen("empfaus")))== 0) 
-						break;
-				    else
-				    {
-				        receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
-				        strcpy(receiver[anzempf], buffer);
-				        len = strlen(receiver[anzempf]);
 
-				        if(len-OVERFLOW > 8) //Länge des Empfängers größer 8, wenn ja Fehler
-				        return -1;
+                    if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))== 0) break;
+                    else
+                    {
+                        receiver[anzempf]= (char *)malloc(strlen(buffer)+1);
+                        strcpy(receiver[anzempf], buffer);
+                        len = strlen(receiver[anzempf]);
 
-				        //Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
-				        for(j = 0; j < len-OVERFLOW; j++)
-				        {
-				            if(!isalnum(receiver[anzempf][j]))
-				            {
-				                free(receiver);
-				                return -1;
-				            }
-				        }
-				        anzempf++;										        
-				    }
-				break;
+                        if(len-OVERFLOW > 8) //Länge des Empfängers größer 8, wenn ja Fehler
+                        return -1;
+
+                        //Prüfung ob alle Zeichen alphanumerisch sind, wenn nicht, Fehler
+                        for(j = 0; j < len-OVERFLOW; j++)
+                        {
+                            if(!isalnum(receiver[anzempf][j]))
+                            {
+                                free(receiver);
+                                return -1;
+                            }
+                        }
+                        anzempf++;
+                        break;
+                    }
+
 
 				case 1: //Betreff
 					subject = (char *)malloc(strlen(buffer)+1);
@@ -337,13 +341,22 @@ int sendmail(int socket, char *spool, char *username)
 					break;
 
                 case 2: //Attachment
-                    if ((strncmp(buffer, "noattach", strlen("noattach")))==0)
+
+                    if ((strncmp(buffer, "noattach", strlen("noattach")))==0 && count ==0)
                     {
                         attach = 0;
+                        count = 1;
                         i++;
                         break;
                     }
-                    if((strncmp(buffer, "attachaus", strlen("attachaus"))) == 0)  //Ende des Attachment
+                    if (count == 0)
+                    {
+                         totallength = strtol(buffer,NULL,10);
+                         count = 1;
+                         break;
+                    }
+
+                    if(templength == totallength)  //Ende des Attachment
 					{
 						break;
 					}
@@ -363,6 +376,7 @@ int sendmail(int socket, char *spool, char *username)
 							}
 
 							strcpy(attachment, buffer);
+                            templength = templength + strlen(buffer);
 						}
 						else
 						{
@@ -379,7 +393,10 @@ int sendmail(int socket, char *spool, char *username)
 							}
 
 							strcat(attachment, buffer);
-						}						
+
+							templength=templength+strlen(buffer);
+						}
+
 					}
 					break;
 
@@ -390,7 +407,7 @@ int sendmail(int socket, char *spool, char *username)
 						if(content == NULL)
 						{
 							content = (char *)malloc(2);
-							strcpy(content, " ");
+							strcpy(content, "\n");
 						}
 						quit = 1;
 					}
@@ -435,9 +452,10 @@ int sendmail(int socket, char *spool, char *username)
 			return -1;
 		}
 
-		if ((strncmp(buffer,"empfaus",strlen("empfaus")))==0 || i > 0)
-		{   if (i ==2 && (strncmp(buffer, "attachaus", strlen("attachaus"))==0)) i++;
-            if (i!= 2) i++;
+		if ((strncmp(buffer,"empf@aus",strlen("empf@aus")))==0 || i > 0)
+		{   if ( (i==2) && (templength == totallength)) i++;
+
+            		if (i!= 2) i++;
 		}
 
 	}
@@ -456,6 +474,7 @@ int sendmail(int socket, char *spool, char *username)
 
 	strcpy(attachpath,mailpath);	
 	strcat(attachpath,"/attach/");	
+
 
 
 		//Existiert das Verzeichnis bereits
@@ -478,6 +497,7 @@ int sendmail(int socket, char *spool, char *username)
 		strcat(mailpath, "/");
 		strcat(mailpath, bufid);
 
+
     		strcat (attachpath, bufid);
 	
 		//Email abspeichern
@@ -491,23 +511,16 @@ int sendmail(int socket, char *spool, char *username)
 
 		fclose(fp);
 
-		if(attachment != NULL)
-		{
-	    		fp = fopen(attachpath,"w");
-	    		fputs(attachment,fp);
-	    		fclose(fp);
-		}
-		
-		//ID im Config-File erhöhen und in Datei schrieben
-		id = strtol(bufid, NULL, 10);
-		id ++;
-
 		if (attach != 0)
 		{
 		    if((fp = fopen(attachpath, "w")) == NULL) return -1;
 		    fputs(attachment,fp);
 		    fclose(fp);
-		}
+		}		
+		
+		//ID im Config-File erhöhen und in Datei schrieben
+		id = strtol(bufid, NULL, 10);
+		id ++;
 
 		fp = fopen(confpath, "w");
 		fprintf(fp, "%d", id);
@@ -532,6 +545,8 @@ int listmail(int socket, char *spool, char *username)
 	char subject[81];
 	char mailpath[150];
 	char msgpath[150];
+
+
 	FILE *fp = NULL;
 	DIR *ver;
 	struct dirent *p;
@@ -559,6 +574,7 @@ int listmail(int socket, char *spool, char *username)
 					strcmp((*p).d_name, ".") != 0 &&
 					strcmp((*p).d_name, "conf.ini") != 0 &&
 					strcmp((*p).d_name, "attach") != 0
+
 				)
 				{
 					//Betreff jeder Nachricht auslesen
@@ -566,21 +582,23 @@ int listmail(int socket, char *spool, char *username)
 					strcat(msgpath, "/");
 					strcat(msgpath, (*p).d_name);
 
-					if((fp = fopen(msgpath, "r")) == NULL)
-						return -1;
+                    
+				        if((fp = fopen(msgpath, "r")) == NULL)
+								return -1;
 
-					for(i = 0; i < 2; i++)
-						fgets(subject, 81, fp);
+				        for(i = 0; i < 2; i++)
+								fgets(subject, 81, fp);
 
-					fgets(subject, 81, fp);
+				        fgets(subject, 81, fp);
 
-					fclose(fp);
+				        fclose(fp);
 
-					strcpy(buffer,(*p).d_name);
-					strcat(buffer, "  ");
-					strcat(buffer, subject);
+				        strcpy(buffer,(*p).d_name);
+				        strcat(buffer, "  ");
+				        strcat(buffer, subject);
 
-	        		send(socket, buffer, strlen(buffer),0);
+				        send(socket, buffer, strlen(buffer),0);                   
+
 				}
 			}
 		}
@@ -602,7 +620,7 @@ int readmail(int socket, char *spool, char *username)
 	char mailpath[150];
 	char attachpath[150];
 	char *msg = NULL;	
-	
+
 	if(username == NULL)
 	{		
 		return -1;
@@ -655,6 +673,7 @@ int readmail(int socket, char *spool, char *username)
 	strncat(mailpath, msg, strlen(msg)-OVERFLOW);
 	strcat(attachpath, "attach/");
 	strncat(attachpath, msg, strlen(msg)-OVERFLOW);
+
 
 	//Mail-File öffnen, Prüfung ob Mail vorhanden
 	if((fp = fopen(mailpath, "r")) == NULL)
@@ -776,13 +795,13 @@ int delmail(int socket, char *spool, char *username)
 	if(remove(mailpath) != 0)
 		return -1;	
 
-    //Attachment löschen
+        //Attachment löschen
 	if(access(attachpath, 00) == 0)
 	{
 		if(remove(attachpath) != 0)
 			return -1;
 	}
-	status = pthread_mutex_unlock(&mutex);
+	status = pthread_mutex_unlock(&mutex);    
 
 	//Speicher freigeben
 	free(msg);

@@ -160,7 +160,7 @@ void sendcom(int mysocket, char buffer[BUF])
             }
 
         }
-    strcpy(buffer,"empfaus\n");
+    strcpy(buffer,"empf@aus\n");
     send(mysocket, buffer, strlen (buffer), 0);
     do
     {
@@ -194,16 +194,33 @@ void sendcom(int mysocket, char buffer[BUF])
 
     char attach,filename[255];
     eingabe = 0;
+    long sizeoffile=0;
+    struct stat attribut;
     do
     {    printf ("Wollen Sie eine Attachment mitsenden: (y,n) ");
          attach = getchar();
         while (getchar() != '\n');;
         if (attach == 'y')
-        {   
-	    eingabe = 1;
+        {   eingabe = 1;
             printf("Geben sie den Pfad + Dateinamen an: ");
             fgets(filename,255,stdin);
             filename [strlen(filename)-1] = '\0';
+            if (stat(filename, &attribut) == -1)
+            {
+                fprintf(stderr,"Dateifehler\n");
+            }
+            else
+            {
+                sizeoffile= attribut.st_size;
+
+            }
+
+            sprintf( buffer, "%ld", sizeoffile );
+
+            strcat(buffer,"\n");
+
+            send(mysocket, buffer, strlen(buffer), 0);
+
             FILE *datei;
 
             datei = fopen(filename, "r");
@@ -214,13 +231,12 @@ void sendcom(int mysocket, char buffer[BUF])
                 return;
             }
 
+
            while(fgets(buffer, BUF, datei))
             {
-
                 send(mysocket, buffer, strlen (buffer), 0);
             }
-        	strcpy(buffer,"attachaus\n");
-        	send(mysocket, buffer, strlen (buffer), 0);
+
         }
         else if (attach == 'n')
         {   eingabe = 1;
@@ -228,7 +244,7 @@ void sendcom(int mysocket, char buffer[BUF])
             send (mysocket, buffer,strlen(buffer),0);
         }
         else
-        	fprintf (stderr, "Ungültige Eingabe!\n");
+        fprintf (stderr, "Ungültige Eingabe!\n");
     } while (eingabe != 1);
 
 
@@ -261,9 +277,9 @@ void sendcom(int mysocket, char buffer[BUF])
 
 void listcom(int mysocket, char buffer[BUF])
 {
- 	send(mysocket, buffer, strlen (buffer), 0);
-    
+    send(mysocket, buffer, strlen (buffer), 0);
     receive(mysocket, buffer);
+
 }
 
 void readcom(int mysocket, char buffer[BUF])
@@ -280,12 +296,13 @@ void readcom(int mysocket, char buffer[BUF])
             buffer[size] = '\0';
             if(strncmp(buffer, "ERR", 3) == 0)
             {
-				fputs(buffer,stdout);
-				return -1;
-			}
+		fputs(buffer,stdout);
+		return -1;
+	    }
 				
-        }
-	
+        }	
+
+    //Nachrichtennummer
     do
     {
         eingabe = 1;
@@ -303,19 +320,20 @@ void readcom(int mysocket, char buffer[BUF])
             }
 
     }while (eingabe !=1);
+
      send(mysocket, buffer, strlen (buffer), 0);
 
         size = readline(mysocket, buffer, BUF-1);
          if(size > 0)
-		{
-			buffer[size] = '\0';
+	{
+		buffer[size] = '\0';
             if ((strncmp (buffer,"OK",2))==0 || (strncmp(buffer,"ERR",3))== 0)
             {
                 fputs(buffer,stdout);
                 return;
             }
-			if ((strncmp(buffer,"true",strlen("true")))== 0)
-			{
+	    if ((strncmp(buffer,"true",strlen("true")))== 0)
+	    {
                     eingabe = 0;
                     do
                     {     printf ("Diese Nachricht enthält ein Attachment.\nWollen Sie das Attachment anzeigen:(y,n)");
@@ -360,10 +378,10 @@ void readcom(int mysocket, char buffer[BUF])
 		else
             return;
 
-
     printf ("\nNachricht:\n");
     
     receive(mysocket, buffer);
+
 }
 
 void delcom(int mysocket, char buffer[BUF])
@@ -371,6 +389,7 @@ void delcom(int mysocket, char buffer[BUF])
     send(mysocket, buffer, strlen (buffer), 0);
     
     int eingabe, size =0;
+
     
     size = readline(mysocket, buffer, BUF-1);           //Warten auf Antwort von Server
 
@@ -379,9 +398,9 @@ void delcom(int mysocket, char buffer[BUF])
             buffer[size] = '\0';
             if(strncmp(buffer, "ERR", 3) == 0)
             {
-				fputs(buffer,stdout);
-				return -1;
-			}
+			fputs(buffer,stdout);
+			return -1;
+		}
 				
         }
 
@@ -460,7 +479,7 @@ void logincom(int mysocket, char buffer[BUF])
     
         send(mysocket, buffer, strlen (buffer), 0);
 
-       receive(mysocket, buffer);
+        receive(mysocket, buffer);
 }
 
 int getch()

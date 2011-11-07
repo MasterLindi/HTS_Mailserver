@@ -44,6 +44,7 @@ int findcom(char s[BUF])
 
 void * runclient(void *arg)
 {
+
 	args *arg2 = arg; //Argumente casten
 
 	int new_socket = arg2->socket; //Socket
@@ -51,8 +52,7 @@ void * runclient(void *arg)
 
 	short attempt = 0; //Versuche
 	char buffer[BUF];
-	char *username = NULL; //Benutzername
-	
+	char *username = NULL; //Benutzername	
 	 int quit = 0;
 	 int size = 0;
 
@@ -126,7 +126,7 @@ void * runclient(void *arg)
 		           		break;
 
 		           default: //Andere Eingabe -> Fehler
-		           		strcpy(buffer,"Undefinded command\n");
+		           		strcpy(buffer,"Server: Undefinded command\n");
 	        			send(new_socket, buffer, strlen(buffer),0);
 		           		break;
 	           }
@@ -269,10 +269,11 @@ int main (int argc, char *argv[])
 	     }
 	     else
 	     {			
-			send(new_socket, "locked\n", 7, 0);
-		    close(new_socket);
-			diff = difftime(time(NULL), tmp->time);			
-			printf("Client %s locked! %.0lf sec left\n", inet_ntoa(cliaddress.sin_addr), IPLOCK - diff);
+		send(new_socket, "locked\n", 7, 0);
+		close(new_socket);
+		diff = difftime(time(NULL), tmp->time);			
+
+		printf("Client %s locked! %.0lf sec left\n", inet_ntoa(cliaddress.sin_addr), IPLOCK - diff);
 	     }
 	}
 
