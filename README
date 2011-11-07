@@ -10,3 +10,8 @@ Client und Server für Mailempfang-versand programmieren
 
 Programmiersprache:
 C (c-99 std)
+
+Attachmentpfad: [spool-verzeichnis]/username/attach/mailnummer
+Das Attachment wird in einem eigenen Verzeichnis (attach) gespeichert, welcher sich im entsprechenden
+Userzeichnis befindet.
+Das Attachment hat dieselbe Nummer wie die Mail zu der es gehört.
